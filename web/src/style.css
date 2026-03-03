@@ -1,0 +1,53 @@
+/* 全局样式重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #f0f2f5;
+  color: #303133;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f7fa;
+}
+
+/* Element Plus 样式覆盖 */
+.el-card {
+  border: none;
+}
+
+.el-card__header {
+  padding: 15px 20px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.el-table {
+  font-size: 14px;
+}
+
+.el-pagination {
+  justify-content: flex-end;
+}
