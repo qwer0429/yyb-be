@@ -1,30 +1,96 @@
-/simpleserver/config.yml
-/venv/
-/.venv/
-/susers/migrations/
+# ============================================
+# Python / Django
+# ============================================
 
-/drug_images/
-/media/
-/sen/migrations/
-/sgpt/migrations/
-/syyb/migrations/
-syyb/__pycache__/
-susers/__pycache__/
-simpleserver/__pycache__/
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+django/venv/
 
-.idea/git_toolbox_prj.xml
-.idea/misc.xml
-.idea/simpleserver.iml
-.idea/vcs.xml
-.idea/workspace.xml
-.idea/inspectionProfiles/profiles_settings.xml
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Django
+*.sqlite3
+db.sqlite3
+*.log
+local_settings.py
+config.yml
+simpleserver/config.yml
+
+# Migrations (保留 __init__.py，但忽略生成的迁移文件)
+*/migrations/*.py
+!*/migrations/__init__.py
+*/migrations/__pycache__/
+susers/migrations/
+sen/migrations/
+sgpt/migrations/
+syyb/migrations/
+
+# Media uploads
+drug_images/
+media/
+
+# ============================================
+# Frontend (Node.js)
+# ============================================
+
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ============================================
+# IDE / Editor
+# ============================================
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
 .vscode/launch.json
 
-.idea/modules.xml
-.idea/.gitignore
-.idea/yyb-be.iml
-.idea/inspectionProfiles/Project_Default.xml
-.idea/log/zzswork_error.log
-.idea/log/zzswork.log
-log/zzswork_error.log
-log/zzswork.log
+# JetBrains (PyCharm, WebStorm, etc)
+**/.idea/log/zzswork_error.log
+**/.idea/log/zzswork.log
+*.iml
+
+# ============================================
+# OS Files
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ============================================
+# Logs & Temp
+# ============================================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+# ============================================
+# History / Backup
+# ============================================
+
+.history/
+*.bak
+*.swp
+*.swo
+*~
