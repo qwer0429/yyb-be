@@ -43,6 +43,9 @@
         <el-button type="success" @click="handleImport">
           <el-icon><Upload /></el-icon>批量导入
         </el-button>
+        <el-button :type="isAllSelected ? 'warning' : 'info'" @click="handleSelectAll">
+          <el-icon><Check /></el-icon>{{ isAllSelected ? '取消全选' : '全选' }}({{ selectedDrugs.length }})
+        </el-button>
         <el-button type="danger" :disabled="!selectedDrugs.length" @click="handleBatchDelete">
           <el-icon><Delete /></el-icon>批量删除({{ selectedDrugs.length }})
         </el-button>
@@ -339,9 +342,34 @@
         >
           <el-icon class="el-icon--upload"><Upload /></el-icon>
           <div class="el-upload__text">
-            拖拽文件到此处或 <em>点击上传</em>
+            拖拽 Excel 文件到此处或 <em>点击上传</em>
           </div>
         </el-upload>
+        
+        <el-divider>图片上传（可选）</el-divider>
+        
+        <div class="image-upload-section">
+          <p class="upload-tip">
+            如果 Excel 中包含图片文件名，请同时上传对应的图片文件<br>
+            <small>支持 jpg、png、gif 格式，文件名需与 Excel 中填写的一致</small>
+          </p>
+          <el-upload
+            class="upload-area image-upload"
+            drag
+            action="#"
+            :auto-upload="false"
+            :on-change="handleImageChange"
+            :on-remove="handleImageRemove"
+            :file-list="imageFiles"
+            accept=".jpg,.jpeg,.png,.gif,.bmp,.webp"
+            multiple
+          >
+            <el-icon class="el-icon--upload"><Picture /></el-icon>
+            <div class="el-upload__text">
+              拖拽图片到此处或 <em>点击上传</em>
+            </div>
+          </el-upload>
+        </div>
       </div>
       
       <div v-if="importStep === 2" class="import-step-content">
@@ -377,13 +405,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { 
   Search, Plus, Upload, Delete, Edit, View, FirstAidKit, 
-  Box, Download, Document, Check, InfoFilled 
+  Box, Download, Document, Check, InfoFilled, Picture
 } from '@element-plus/icons-vue';
 
 // 搜索表单
@@ -438,27 +466,40 @@ const currentDrug = ref<any>(null);
 const importDialogVisible = ref(false);
 const importStep = ref(1);
 const uploadFile = ref<File | null>(null);
+const imageFiles = ref<File[]>([]);
 const previewData = ref<any[]>([]);
 const importResults = ref({ success: false, message: '' });
 const importing = ref(false);
+
+// 全部药品数据（前端分页用）
+const allDrugs = ref<any[]>([]);
 
 // 获取药品列表
 const fetchDrugs = async () => {
   loading.value = true;
   try {
+    // 请求全部数据（后端返回不分页）
     const response = await api.get('/syyb/drug/', {
       params: {
-        page: currentPage.value,
-        page_size: pageSize.value
+        page_size: 0  // 0 表示返回全部数据
       }
     });
-    drugs.value = response.data.results || [];
-    total.value = response.data.count || 0;
+    // 后端不分页时直接返回数组，分页时返回 {results, count}
+    allDrugs.value = Array.isArray(response.data) ? response.data : (response.data.results || []);
+    total.value = allDrugs.value.length;
+    updatePagedDrugs();
   } catch (error) {
     console.error('获取药品列表失败:', error);
   } finally {
     loading.value = false;
   }
+};
+
+// 更新当前页显示的药品（前端分页）
+const updatePagedDrugs = () => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  drugs.value = allDrugs.value.slice(start, end);
 };
 
 // 获取分类选项
@@ -498,8 +539,11 @@ const searchDrugs = async () => {
     const response = await api.post('/syyb/search_anything/', {
       text: searchForm.keyword
     });
-    drugs.value = response.data.results || [];
-    total.value = response.data.count || 0;
+    // 存储全部搜索结果，前端分页显示
+    allDrugs.value = response.data.results || [];
+    total.value = allDrugs.value.length;
+    currentPage.value = 1;  // 搜索后重置到第一页
+    updatePagedDrugs();
   } catch (error) {
     console.error('搜索失败:', error);
   } finally {
@@ -550,15 +594,30 @@ const toggleSelection = (drug: any) => {
   }
 };
 
-// 分页
+// 是否全选
+const isAllSelected = computed(() => {
+  return drugs.value.length > 0 && selectedDrugs.value.length === drugs.value.length;
+});
+
+// 全选/取消全选
+const handleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedDrugs.value = [];
+  } else {
+    selectedDrugs.value = [...drugs.value];
+  }
+};
+
+// 分页（前端分页）
 const handleSizeChange = (val: number) => {
   pageSize.value = val;
-  fetchDrugs();
+  currentPage.value = 1;  // 切换每页数量时重置到第一页
+  updatePagedDrugs();
 };
 
 const handlePageChange = (val: number) => {
   currentPage.value = val;
-  fetchDrugs();
+  updatePagedDrugs();
 };
 
 // 新增
@@ -662,7 +721,9 @@ const handleSubmit = async () => {
 const handleImport = () => {
   importStep.value = 1;
   uploadFile.value = null;
+  imageFiles.value = [];
   previewData.value = [];
+  importResults.value = { success: false, message: '' };
   importDialogVisible.value = true;
 };
 
@@ -687,14 +748,38 @@ const downloadTemplate = async () => {
 };
 
 // 文件选择变化
-const handleFileChange = (file: File) => {
+const handleFileChange = (file: any) => {
   const isExcel = file.name.endsWith('.xls') || file.name.endsWith('.xlsx') || file.name.endsWith('.xlsm');
   if (!isExcel) {
     ElMessage.error('请上传 Excel 文件 (.xls, .xlsx, .xlsm)');
     return false;
   }
-  uploadFile.value = file;
+  // 使用 file.raw 获取实际的 File 对象
+  uploadFile.value = file.raw || file;
   return false;
+};
+
+// 图片文件选择变化
+const handleImageChange = (file: any) => {
+  const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name);
+  if (!isImage) {
+    ElMessage.error('请上传图片文件 (jpg, png, gif, bmp, webp)');
+    return false;
+  }
+  // 添加到图片列表
+  const fileObj = file.raw || file;
+  if (!imageFiles.value.some(f => f.name === fileObj.name)) {
+    imageFiles.value.push(fileObj);
+  }
+  return false;
+};
+
+// 移除图片文件
+const handleImageRemove = (file: any) => {
+  const index = imageFiles.value.findIndex(f => f.name === file.name);
+  if (index > -1) {
+    imageFiles.value.splice(index, 1);
+  }
 };
 
 // 预览导入数据
@@ -730,6 +815,11 @@ const confirmImport = async () => {
   importing.value = true;
   const formData = new FormData();
   formData.append('file', uploadFile.value);
+  
+  // 添加图片文件
+  imageFiles.value.forEach((imgFile) => {
+    formData.append(imgFile.name, imgFile);
+  });
   
   try {
     const response = await api.post('/syyb/add_drugs_from_excel/', formData, {
@@ -1049,6 +1139,28 @@ onMounted(() => {
 
 .upload-area {
   width: 100%;
+}
+
+.image-upload-section {
+  margin-top: 16px;
+}
+
+.upload-tip {
+  text-align: center;
+  color: #606266;
+  font-size: 14px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.upload-tip small {
+  color: #909399;
+}
+
+.image-upload {
+  :deep(.el-upload-dragger) {
+    padding: 20px;
+  }
 }
 
 /* 响应式 */

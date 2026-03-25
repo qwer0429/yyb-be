@@ -5,6 +5,26 @@ from .models import (
 )
 
 
+class DrugListSerializer(serializers.ModelSerializer):
+    """简化版药品列表序列化器，只返回列表展示需要的字段"""
+    type2_drug_name = serializers.CharField(source='type2_drug.name', read_only=True)
+    type1_drug = serializers.CharField(source='type2_drug.type1_drug.name', read_only=True)
+    manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
+    manufacturer_abbreviation = serializers.CharField(source='manufacturer.abbreviation', read_only=True)
+    manufacturer_holder_name = serializers.CharField(source='manufacturer_holder.name', read_only=True)
+    
+    class Meta:
+        model = Drug
+        fields = [
+            'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
+            'specification', 'dosage_form', 'medical_insurance',
+            'type2_drug_name', 'type1_drug', 'manufacturer_name', 
+            'manufacturer_abbreviation', 'manufacturer_holder_name',
+            'approval_number', 'approval_date', 'atc_code',
+            'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
+        ]
+
+
 class DrugSerializer(serializers.ModelSerializer):
     type1_drug = serializers.SerializerMethodField()
 
@@ -74,9 +94,15 @@ class ManufacturerSerializer(serializers.ModelSerializer):
 
 
 class Type1DrugSerializer(serializers.ModelSerializer):
+    """一级分类序列化器 - 包含子分类数量"""
+    type2_count = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = Type1Drug
-        fields = "__all__"
+        fields = ['id', 'name', 'type2_count']
+    
+    def get_type2_count(self, obj):
+        return obj.type2drug_set.count()
 
 
 class Type2DrugSerializer(serializers.ModelSerializer):

@@ -67,6 +67,8 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated'  # 默认权限为验证用户
     ],
+    'DEFAULT_PAGINATION_CLASS': 'syyb.pagination.CustomPagination',
+    'PAGE_SIZE': 50,
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
 }
 

@@ -9,13 +9,41 @@
       <el-tab-pane label="上市许可持有人" name="holder">
         <div class="tab-header">
           <span class="tab-desc">管理药品上市许可持有人信息</span>
-          <el-button type="primary" @click="handleAddHolder">
-            <el-icon><Plus /></el-icon>新增持有人
-          </el-button>
+          <div class="header-actions">
+            <el-checkbox
+              v-if="holderList.length > 0"
+              v-model="isAllHolderSelected"
+              @change="handleSelectAllHolder"
+            >
+              全选 ({{ selectedHolders.length }})
+            </el-checkbox>
+            <el-button
+              type="danger"
+              :disabled="!selectedHolders.length"
+              @click="handleBatchDeleteHolder"
+              size="small"
+            >
+              <el-icon><Delete /></el-icon>批量删除({{ selectedHolders.length }})
+            </el-button>
+            <el-button type="primary" @click="handleAddHolder">
+              <el-icon><Plus /></el-icon>新增持有人
+            </el-button>
+          </div>
         </div>
 
         <div v-loading="loading1" class="manufacturer-grid">
-          <div v-for="item in holderList" :key="item.id" class="manufacturer-card">
+          <div
+            v-for="item in holderList"
+            :key="item.id"
+            class="manufacturer-card"
+            :class="{ selected: isHolderSelected(item) }"
+          >
+            <div class="card-checkbox" @click.stop>
+              <el-checkbox
+                :model-value="isHolderSelected(item)"
+                @change="toggleHolderSelection(item)"
+              />
+            </div>
             <div class="card-icon blue">
               <el-icon :size="32"><OfficeBuilding /></el-icon>
             </div>
@@ -49,13 +77,41 @@
       <el-tab-pane label="生产厂商" name="manufacturer">
         <div class="tab-header">
           <span class="tab-desc">管理药品生产厂商信息</span>
-          <el-button type="success" @click="handleAddManufacturer">
-            <el-icon><Plus /></el-icon>新增厂商
-          </el-button>
+          <div class="header-actions">
+            <el-checkbox
+              v-if="manufacturerList.length > 0"
+              v-model="isAllManufacturerSelected"
+              @change="handleSelectAllManufacturer"
+            >
+              全选 ({{ selectedManufacturers.length }})
+            </el-checkbox>
+            <el-button
+              type="danger"
+              :disabled="!selectedManufacturers.length"
+              @click="handleBatchDeleteManufacturer"
+              size="small"
+            >
+              <el-icon><Delete /></el-icon>批量删除({{ selectedManufacturers.length }})
+            </el-button>
+            <el-button type="success" @click="handleAddManufacturer">
+              <el-icon><Plus /></el-icon>新增厂商
+            </el-button>
+          </div>
         </div>
 
         <div v-loading="loading2" class="manufacturer-grid">
-          <div v-for="item in manufacturerList" :key="item.id" class="manufacturer-card">
+          <div
+            v-for="item in manufacturerList"
+            :key="item.id"
+            class="manufacturer-card"
+            :class="{ selected: isManufacturerSelected(item) }"
+          >
+            <div class="card-checkbox" @click.stop>
+              <el-checkbox
+                :model-value="isManufacturerSelected(item)"
+                @change="toggleManufacturerSelection(item)"
+              />
+            </div>
             <div class="card-icon green"><el-icon :size="32"><Factory /></el-icon></div>
             <div class="card-content">
               <h4 class="card-title">{{ item.name }}</h4>
@@ -121,6 +177,76 @@ const submitting = ref(false);
 const formRef = ref<FormInstance>();
 const form = reactive({ id: null as number | null, name: '', abbreviation: '' });
 const rules: FormRules = { name: [{ required: true, message: '请输入全称', trigger: 'blur' }] };
+
+// 批量选择数据
+const selectedHolders = ref<any[]>([]);
+const selectedManufacturers = ref<any[]>([]);
+
+// 上市许可持有人批量操作
+const isHolderSelected = (item: any) => selectedHolders.value.some(h => h.id === item.id);
+const toggleHolderSelection = (item: any) => {
+  const index = selectedHolders.value.findIndex(h => h.id === item.id);
+  if (index > -1) selectedHolders.value.splice(index, 1);
+  else selectedHolders.value.push(item);
+};
+const isAllHolderSelected = computed({
+  get: () => holderList.value.length > 0 && selectedHolders.value.length === holderList.value.length,
+  set: (val) => {
+    selectedHolders.value = val ? [...holderList.value] : [];
+  }
+});
+const handleSelectAllHolder = () => {
+  isAllHolderSelected.value = !isAllHolderSelected.value;
+};
+const handleBatchDeleteHolder = () => {
+  const names = selectedHolders.value.map((h: any) => h.name).join('、');
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedHolders.value.length} 个上市许可持有人吗？<br><small style="color: #909399;">包含：${names}</small>`,
+    '提示',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+  ).then(async () => {
+    try {
+      const ids = selectedHolders.value.map((h: any) => h.id);
+      await api.delete('/syyb/manufacturerholder/batch_delete/', { data: { ids } });
+      ElMessage.success('批量删除成功');
+      selectedHolders.value = [];
+      fetchHolderList();
+    } catch (error) { ElMessage.error('批量删除失败'); }
+  });
+};
+
+// 生产厂商批量操作
+const isManufacturerSelected = (item: any) => selectedManufacturers.value.some(m => m.id === item.id);
+const toggleManufacturerSelection = (item: any) => {
+  const index = selectedManufacturers.value.findIndex(m => m.id === item.id);
+  if (index > -1) selectedManufacturers.value.splice(index, 1);
+  else selectedManufacturers.value.push(item);
+};
+const isAllManufacturerSelected = computed({
+  get: () => manufacturerList.value.length > 0 && selectedManufacturers.value.length === manufacturerList.value.length,
+  set: (val) => {
+    selectedManufacturers.value = val ? [...manufacturerList.value] : [];
+  }
+});
+const handleSelectAllManufacturer = () => {
+  isAllManufacturerSelected.value = !isAllManufacturerSelected.value;
+};
+const handleBatchDeleteManufacturer = () => {
+  const names = selectedManufacturers.value.map((m: any) => m.name).join('、');
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedManufacturers.value.length} 个生产厂商吗？<br><small style="color: #909399;">包含：${names}</small>`,
+    '提示',
+    { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning', dangerouslyUseHTMLString: true }
+  ).then(async () => {
+    try {
+      const ids = selectedManufacturers.value.map((m: any) => m.id);
+      await api.delete('/syyb/manufacturer/batch_delete/', { data: { ids } });
+      ElMessage.success('批量删除成功');
+      selectedManufacturers.value = [];
+      fetchManufacturerList();
+    } catch (error) { ElMessage.error('批量删除失败'); }
+  });
+};
 
 const dialogTitle = computed(() => {
   const typeText = dialogType.value === 'holder' ? '上市许可持有人' : '生产厂商';
@@ -195,10 +321,13 @@ onMounted(() => { fetchHolderList(); fetchManufacturerList(); });
 .manufacturer-tabs :deep(.el-tabs__header) { margin: 0; background: #fff; border-bottom: 1px solid #ebeef5; }
 .manufacturer-tabs :deep(.el-tabs__content) { padding: 20px; background: #fff; }
 .tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
 .tab-desc { font-size: 14px; color: #909399; }
 .manufacturer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-.manufacturer-card { display: flex; align-items: center; gap: 16px; padding: 20px; background: #fff; border-radius: 12px; border: 1px solid #ebeef5; transition: all 0.3s ease; position: relative; }
-.manufacturer-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.manufacturer-card { display: flex; align-items: center; gap: 16px; padding: 20px; background: #fff; border-radius: 12px; border: 2px solid transparent; transition: all 0.3s ease; position: relative; }
+.manufacturer-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); border-color: #409eff; }
+.manufacturer-card.selected { border-color: #409eff; background: #f0f9ff; }
+.card-checkbox { margin-right: 4px; }
 .manufacturer-card.add-card { border-style: dashed; background: #fafafa; cursor: pointer; }
 .manufacturer-card.add-card:hover { background: #f0f9ff; border-color: #409eff; }
 .card-icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }

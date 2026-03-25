@@ -20,6 +20,7 @@ from .views import (
     DrugViewSet, Type1DrugViewSet, Type2DrugViewSet, ManufacturerViewSet, ManufacturerHolderViewSet,
     Type2DrugsByType1View, DrugsByType2View, FamilyUseList, SearchManufacturer, 
     SearchManufacturerHolder, SearchAnything, AllType1WithType2View, BatchDeleteDrugs,
+    BatchDeleteType1Drug, BatchDeleteType2Drug, BatchDeleteManufacturer, BatchDeleteManufacturerHolder,
     add_drugs_from_excel, download_import_template, preview_import_excel,
     MedicineCabinetViewSet, CabinetDrugViewSet, CabinetDrugsByCabinetView,
     UpdateCabinetDrugQuantityView, ExpiringDrugsView, DefaultCabinetView
@@ -43,6 +44,10 @@ urlpatterns = [
     path('search_anything/',SearchAnything.as_view(),name='search_anything'),
     path('all_type1_with_type2/', AllType1WithType2View.as_view(), name='all-type1-with-type2'),
     path('batch_delete_drugs/', BatchDeleteDrugs.as_view(), name='batch-delete-drugs'),
+    path('type1drug/batch_delete/', BatchDeleteType1Drug.as_view(), name='batch-delete-type1'),
+    path('type2drug/batch_delete/', BatchDeleteType2Drug.as_view(), name='batch-delete-type2'),
+    path('manufacturer/batch_delete/', BatchDeleteManufacturer.as_view(), name='batch-delete-manufacturer'),
+    path('manufacturerholder/batch_delete/', BatchDeleteManufacturerHolder.as_view(), name='batch-delete-holder'),
     path('add_drugs_from_excel/', add_drugs_from_excel, name='add_drugs_from_excel'),
     path('download_import_template/', download_import_template, name='download-import-template'),
     path('preview_import_excel/', preview_import_excel, name='preview-import-excel'),
