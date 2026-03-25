@@ -60,8 +60,6 @@
         highlight-current-row
       >
         <el-table-column type="selection" width="55" align="center" />
-        <el-table-column prop="id" label="ID" width="80" align="center" />
-        
         <el-table-column label="药品图片" width="100" align="center">
           <template #default="{ row }">
             <el-image
@@ -72,7 +70,7 @@
             >
               <template #error>
                 <div class="image-placeholder">
-                  <el-icon :size="24"><First-Aid-Kit /></el-icon>
+                  <el-icon :size="24"><FirstAidKit /></el-icon>
                 </div>
               </template>
             </el-image>
@@ -98,16 +96,16 @@
         
         <el-table-column prop="approval_number" label="批准文号" width="140" />
         
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column label="操作" width="180" align="center">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">
-              查看
+              <el-icon><ViewIcon /></el-icon>查看
             </el-button>
             <el-button link type="primary" size="small" @click="handleEdit(row)">
-              编辑
+              <el-icon><Edit /></el-icon>编辑
             </el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">
-              删除
+              <el-icon><Delete /></el-icon>删除
             </el-button>
           </template>
         </el-table-column>
@@ -195,6 +193,73 @@
         </el-button>
       </template>
     </el-dialog>
+    
+    <!-- 查看详情对话框 -->
+    <el-dialog
+      v-model="viewDialogVisible"
+      title="药品详情"
+      width="700px"
+      destroy-on-close
+    >
+      <div v-if="currentDrug" class="drug-detail">
+        <div class="detail-header">
+          <div class="detail-image">
+            <el-image
+              :src="currentDrug.drug_image || '/default-drug.png'"
+              fit="cover"
+              style="width: 120px; height: 120px; border-radius: 8px"
+            >
+              <template #error>
+                <div class="image-placeholder-large">
+                  <el-icon :size="48"><FirstAidKit /></el-icon>
+                </div>
+              </template>
+            </el-image>
+          </div>
+          <div class="detail-title">
+            <h2>{{ currentDrug.trade_name || '-' }}</h2>
+            <p class="subtitle">{{ currentDrug.drug_name || '-' }}</p>
+            <div class="detail-tags">
+              <el-tag v-if="currentDrug.is_hot" type="danger" effect="dark">热门</el-tag>
+              <el-tag v-if="currentDrug.medical_insurance" :type="getInsuranceType(currentDrug.medical_insurance)">
+                {{ currentDrug.medical_insurance }}
+              </el-tag>
+              <el-tag v-if="currentDrug.market_status" :type="getMarketStatusType(currentDrug.market_status)">
+                {{ currentDrug.market_status }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+        
+        <el-descriptions :column="2" border class="detail-descriptions">
+          <el-descriptions-item label="规格">{{ currentDrug.specification || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="剂型">{{ currentDrug.dosage_form || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="给药途径">{{ currentDrug.administration_route || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="批准文号">{{ currentDrug.approval_number || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="批准日期">{{ currentDrug.approval_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="ATC编码">{{ currentDrug.atc_code || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="一级分类">{{ currentDrug.type1_drug || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="二级分类">{{ currentDrug.type2_drug_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="生产厂商">{{ currentDrug.manufacturer_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="厂商简称">{{ currentDrug.manufacturer_abbreviation || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="上市许可持有人">{{ currentDrug.manufacturer_holder_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="持有人简称">{{ currentDrug.manufacturer_holder_abbreviation || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="活性成分">{{ currentDrug.active_ingredient || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="医保类型">{{ currentDrug.medical_insurance || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="分类" :span="2">{{ currentDrug.category || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="京东链接" :span="2">
+            <a v-if="currentDrug.jd_url" :href="currentDrug.jd_url" target="_blank" class="link">{{ currentDrug.jd_url }}</a>
+            <span v-else>-</span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button @click="viewDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleEdit(currentDrug); viewDialogVisible = false;">
+          <el-icon><Edit /></el-icon>编辑
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -203,6 +268,7 @@ import { ref, reactive, onMounted } from 'vue';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
+import { Search, Plus, Upload, Delete, Edit, View as ViewIcon, FirstAidKit } from '@element-plus/icons-vue';
 
 // 搜索表单
 const searchForm = reactive({
@@ -269,7 +335,7 @@ const fetchDrugs = async () => {
 const fetchCategories = async () => {
   try {
     const response = await api.get('/syyb/all_type1_with_type2/');
-    categoryOptions.value = response.data || [];
+    categoryOptions.value = response.data.results || [];
   } catch (error) {
     console.error('获取分类失败:', error);
   }
@@ -349,9 +415,33 @@ const handleEdit = (row: any) => {
   dialogVisible.value = true;
 };
 
-// 查看
+// 查看详情对话框
+const viewDialogVisible = ref(false);
+const currentDrug = ref<any>(null);
+
 const handleView = (row: any) => {
-  ElMessage.info(`查看药品: ${row.trade_name || row.drug_name}`);
+  currentDrug.value = row;
+  viewDialogVisible.value = true;
+};
+
+// 获取医保类型标签样式
+const getInsuranceType = (type: string) => {
+  const map: Record<string, string> = {
+    '甲类': 'danger',
+    '乙类': 'warning',
+    '非医保': 'info'
+  };
+  return map[type] || 'info';
+};
+
+// 获取市场状态标签样式
+const getMarketStatusType = (status: string) => {
+  const map: Record<string, string> = {
+    '在售': 'success',
+    '停产': 'info',
+    '退市': 'danger'
+  };
+  return map[status] || 'info';
 };
 
 // 删除
@@ -445,23 +535,90 @@ onMounted(() => {
   padding: 0;
 }
 
+/* 搜索卡片优化 */
 .search-card {
   margin-bottom: 20px;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.search-card :deep(.el-card__body) {
+  padding: 20px 24px;
 }
 
 .search-form {
-  margin-bottom: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-form :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.search-form :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  transition: all 0.2s;
+}
+
+.search-form :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #409EFF inset;
 }
 
 .operation-bar {
   display: flex;
-  gap: 10px;
-  padding-top: 15px;
-  border-top: 1px solid #ebeef5;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px dashed #e4e7ed;
 }
 
+.operation-bar .el-button {
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.operation-bar .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 表格卡片优化 */
 .table-card {
   min-height: calc(100vh - 280px);
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.table-card :deep(.el-card__body) {
+  padding: 20px 24px;
+}
+
+.table-card :deep(.el-table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-card :deep(.el-table__header-wrapper th) {
+  background-color: #f5f7fa;
+  font-weight: 600;
+  color: #606266;
+  height: 48px;
+}
+
+.table-card :deep(.el-table__row) {
+  transition: all 0.2s;
+}
+
+.table-card :deep(.el-table__row:hover) {
+  background-color: #f5f7fa;
 }
 
 .drug-name {
@@ -471,29 +628,184 @@ onMounted(() => {
 }
 
 .drug-name .name {
-  font-weight: 500;
+  font-weight: 600;
+  color: #303133;
 }
 
+/* 图片占位符优化 */
 .image-placeholder {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-  color: #909399;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+  border-radius: 10px;
+  color: #c0c4cc;
+  transition: all 0.2s;
 }
 
+.image-placeholder:hover {
+  background: linear-gradient(135deg, #e6f2ff 0%, #cce5ff 100%);
+  color: #409EFF;
+}
+
+/* 操作按钮优化 */
+.table-card :deep(.el-button--link) {
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.table-card :deep(.el-button--link:hover) {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.table-card :deep(.el-button--link.is-link-danger:hover) {
+  background-color: rgba(245, 108, 108, 0.1);
+}
+
+/* 分页优化 */
 .pagination-wrapper {
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
+  margin-top: 24px;
   padding-top: 20px;
+  border-top: 1px solid #ebeef5;
+}
+
+.pagination-wrapper :deep(.el-pagination) {
+  font-weight: 500;
+}
+
+.pagination-wrapper :deep(.el-pagination .el-select .el-input) {
+  width: 100px;
+}
+
+/* 对话框优化 */
+:deep(.el-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+:deep(.el-dialog__header) {
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  padding: 20px 24px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+:deep(.el-dialog__title) {
+  font-weight: 600;
+  font-size: 18px;
+  color: #303133;
+}
+
+:deep(.el-dialog__body) {
+  padding: 24px;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 16px 24px;
   border-top: 1px solid #ebeef5;
 }
 
 .drug-form :deep(.el-form-item) {
   margin-bottom: 20px;
+}
+
+.drug-form :deep(.el-input__wrapper),
+.drug-form :deep(.el-select .el-input__wrapper) {
+  border-radius: 8px;
+}
+
+/* 标签优化 */
+:deep(.el-tag) {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* 空状态优化 */
+:deep(.el-empty) {
+  padding: 60px 0;
+}
+
+:deep(.el-empty__description) {
+  color: #909399;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+/* 详情对话框样式 */
+.drug-detail {
+  padding: 0 10px;
+}
+
+.detail-header {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.detail-image {
+  flex-shrink: 0;
+}
+
+.image-placeholder-large {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+  border-radius: 8px;
+  color: #c0c4cc;
+}
+
+.detail-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.detail-title h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.detail-title .subtitle {
+  font-size: 16px;
+  color: #606266;
+  margin: 0 0 12px 0;
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detail-descriptions {
+  margin-top: 16px;
+}
+
+.detail-descriptions :deep(.el-descriptions__label) {
+  font-weight: 600;
+  background-color: #f5f7fa;
+  width: 120px;
+}
+
+.link {
+  color: #409EFF;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
 }
 </style>

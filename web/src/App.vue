@@ -11,7 +11,7 @@
         <!-- 侧边栏 -->
         <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
           <div class="logo">
-            <el-icon :size="28" color="#fff"><First-Aid-Kit /></el-icon>
+            <el-icon :size="28" color="#fff"><FirstAidKit /></el-icon>
             <span v-show="!isCollapse" class="logo-text">医药宝</span>
           </div>
           
@@ -26,12 +26,12 @@
             class="sidebar-menu"
           >
             <el-menu-item index="/">
-              <el-icon><Home-Filled /></el-icon>
+              <el-icon><HomeFilled /></el-icon>
               <template #title>首页</template>
             </el-menu-item>
             
             <el-menu-item index="/drugs">
-              <el-icon><First-Aid-Kit /></el-icon>
+              <el-icon><FirstAidKit /></el-icon>
               <template #title>药品管理</template>
             </el-menu-item>
             
@@ -41,7 +41,7 @@
             </el-menu-item>
             
             <el-menu-item index="/manufacturers">
-              <el-icon><Office-Building /></el-icon>
+              <el-icon><OfficeBuilding /></el-icon>
               <template #title>厂商管理</template>
             </el-menu-item>
           </el-menu>
@@ -56,8 +56,8 @@
                 :size="20"
                 @click="toggleCollapse"
               >
-                <Fold v-if="!isCollapse" />
-                <Expand v-else />
+                <FoldIcon v-if="!isCollapse" />
+                <ExpandIcon v-else />
               </el-icon>
               <breadcrumb />
             </div>
@@ -66,16 +66,16 @@
               <!-- 全屏按钮 -->
               <el-tooltip content="全屏" placement="bottom">
                 <el-icon class="header-icon" :size="18" @click="toggleFullscreen">
-                  <Full-Screen />
+                  <FullScreen />
                 </el-icon>
               </el-tooltip>
               
               <!-- 用户菜单 -->
               <el-dropdown @command="handleCommand">
                 <div class="user-info">
-                  <el-avatar :size="32" :icon="User-Filled" />
+                  <el-avatar :size="32" :icon="UserFilled" />
                   <span class="username">{{ authStore.username || '管理员' }}</span>
-                  <el-icon><Arrow-Down /></el-icon>
+                  <el-icon><ArrowDown /></el-icon>
                 </div>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -86,7 +86,7 @@
                       <el-icon><Setting /></el-icon>系统设置
                     </el-dropdown-item>
                     <el-dropdown-item divided command="logout">
-                      <el-icon><Switch-Button /></el-icon>退出登录
+                      <el-icon><SwitchButton /></el-icon>退出登录
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -113,6 +113,20 @@ import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from './stores/auth';
 import { ElMessageBox } from 'element-plus';
+import { 
+  FirstAidKit, 
+  HomeFilled, 
+  Collection, 
+  OfficeBuilding, 
+  Fold as FoldIcon, 
+  Expand as ExpandIcon, 
+  FullScreen, 
+  UserFilled, 
+  ArrowDown, 
+  User, 
+  Setting, 
+  SwitchButton 
+} from '@element-plus/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -285,6 +299,13 @@ html, body, #app {
   background-color: #f0f2f5;
   padding: 20px;
   overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* Chrome/Safari 隐藏滚动条 */
+.main-content::-webkit-scrollbar {
+  display: none;
 }
 
 /* 页面切换动画 */

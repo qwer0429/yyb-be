@@ -106,24 +106,28 @@ class Type1DrugViewSet(viewsets.ModelViewSet):
     queryset = Type1Drug.objects.all()
     serializer_class = Type1DrugSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = CustomPagination
 
 
 class Type2DrugViewSet(viewsets.ModelViewSet):
     queryset = Type2Drug.objects.all()
     serializer_class = Type2DrugSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = CustomPagination
 
 
 class ManufacturerViewSet(viewsets.ModelViewSet):
     queryset = Manufacturer.objects.all()
     serializer_class = ManufacturerSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = CustomPagination
 
 
 class ManufacturerHolderViewSet(viewsets.ModelViewSet):
     queryset = ManufacturerHolder.objects.all()
     serializer_class = ManufacturerHolderSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = CustomPagination
 
 
 class Type2DrugsByType1View(APIView):
@@ -146,7 +150,10 @@ class Type2DrugsByType1View(APIView):
         # 序列化二级分类数据
         serializer = Type2DrugSerializer(type2_drugs, many=True)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {"count": len(serializer.data), "results": serializer.data},
+            status=status.HTTP_200_OK,
+        )
 
 
 class DrugsByType2View(APIView):
@@ -167,7 +174,10 @@ class DrugsByType2View(APIView):
 
         # 序列化药品数据
         serializer = self.serializer_class(drugs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {"count": len(serializer.data), "results": serializer.data},
+            status=status.HTTP_200_OK,
+        )
 
 
 class FamilyUseList(APIView):
@@ -356,7 +366,10 @@ class AllType1WithType2View(APIView):
                 }
             )
 
-        return Response(result, status=status.HTTP_200_OK)
+        return Response(
+            {"count": len(result), "results": result},
+            status=status.HTTP_200_OK,
+        )
 
 
 class BatchDeleteDrugs(APIView):

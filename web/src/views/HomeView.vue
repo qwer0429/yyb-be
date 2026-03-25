@@ -7,7 +7,7 @@
           <h1>欢迎使用医药宝管理系统</h1>
           <p>今天是 {{ currentDate }}，祝您工作愉快！</p>
         </div>
-        <el-icon class="welcome-icon" :size="80" color="#409EFF"><First-Aid-Kit /></el-icon>
+        <el-icon class="welcome-icon" :size="80" color="#409EFF"><FirstAidKit /></el-icon>
       </div>
     </el-card>
     
@@ -17,7 +17,7 @@
         <el-card class="stat-card" shadow="hover">
           <div class="stat-item">
             <div class="stat-icon blue">
-              <el-icon :size="32"><First-Aid-Kit /></el-icon>
+              <el-icon :size="32"><FirstAidKit /></el-icon>
             </div>
             <div class="stat-info">
               <p class="stat-value">{{ stats.drugCount }}</p>
@@ -45,7 +45,7 @@
         <el-card class="stat-card" shadow="hover">
           <div class="stat-item">
             <div class="stat-icon orange">
-              <el-icon :size="32"><Office-Building /></el-icon>
+              <el-icon :size="32"><OfficeBuilding /></el-icon>
             </div>
             <div class="stat-info">
               <p class="stat-value">{{ stats.manufacturerCount }}</p>
@@ -82,7 +82,7 @@
           <div class="quick-actions">
             <div class="action-item" @click="$router.push('/drugs')">
               <div class="action-icon blue">
-                <el-icon :size="24"><First-Aid-Kit /></el-icon>
+                <el-icon :size="24"><FirstAidKit /></el-icon>
               </div>
               <span>药品管理</span>
             </div>
@@ -94,7 +94,7 @@
             </div>
             <div class="action-item" @click="$router.push('/manufacturers')">
               <div class="action-icon orange">
-                <el-icon :size="24"><Office-Building /></el-icon>
+                <el-icon :size="24"><OfficeBuilding /></el-icon>
               </div>
               <span>厂商管理</span>
             </div>

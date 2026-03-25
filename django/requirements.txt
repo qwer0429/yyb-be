@@ -51,3 +51,4 @@ zipp
 zope.event
 zope.interface
 Pillow
+mysqlclient

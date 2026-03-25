@@ -19,7 +19,7 @@ class DrugSerializer(serializers.ModelSerializer):
         source='manufacturer_holder.abbreviation', read_only=True, label="上市许可持有人简称"
     )
     manufacturer_holder = serializers.PrimaryKeyRelatedField(
-        write_only=True, queryset=ManufacturerHolder.objects.all(), label="上市许可持有人id"
+        write_only=True, queryset=ManufacturerHolder.objects.all(), label="上市许可持有人id", required=False, allow_null=True
     )
 
     # 生产厂商显示名称及简称

@@ -94,3 +94,5 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+
+django/simpleserver/config.yml

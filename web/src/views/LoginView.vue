@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <el-icon :size="48" color="#409EFF"><First-Aid-Kit /></el-icon>
+        <el-icon :size="48" color="#409EFF"><FirstAidKit /></el-icon>
         <h1>医药宝管理系统</h1>
         <p>Medicine Management System</p>
       </div>
