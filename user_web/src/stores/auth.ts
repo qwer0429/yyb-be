@@ -10,7 +10,6 @@ interface User {
   name?: string
   mobile?: string
   is_admin: boolean
-  is_staff: boolean
 }
 
 interface TokenResponse {
@@ -29,8 +28,7 @@ export const useAuthStore = defineStore('auth', () => {
   // Getters
   const isAuthenticated = computed(() => !!accessToken.value)
   const username = computed(() => user.value?.username || '')
-  const isAdmin = computed(() => user.value?.is_admin || false)
-  const isRegularUser = computed(() => !user.value?.is_admin)
+  const isRegularUser = computed(() => user.value?.is_admin === false)
 
   // Actions
   const login = async (username: string, password: string) => {
@@ -41,13 +39,19 @@ export const useAuthStore = defineStore('auth', () => {
         password
       })
       
+      // 检查是否为管理员，管理员不能登录用户端
+      if (response.data.user.is_admin) {
+        ElMessage.error('管理员请使用后台管理系统登录')
+        return false
+      }
+      
       accessToken.value = response.data.access
       refreshToken.value = response.data.refresh
       
       localStorage.setItem('access_token', response.data.access)
       localStorage.setItem('refresh_token', response.data.refresh)
       
-      // 保存用户信息（包括角色）
+      // 保存用户信息
       if (response.data.user) {
         user.value = response.data.user
         localStorage.setItem('user_info', JSON.stringify(response.data.user))
@@ -66,7 +70,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   const fetchUserInfo = async () => {
     try {
-      // 从本地存储获取用户信息
       const storedUser = localStorage.getItem('user_info')
       if (storedUser) {
         user.value = JSON.parse(storedUser)
@@ -115,7 +118,6 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     isAuthenticated,
     username,
-    isAdmin,
     isRegularUser,
     login,
     logout,

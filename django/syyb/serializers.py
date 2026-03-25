@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Drug, ManufacturerHolder, Manufacturer, Type1Drug, Type2Drug
+from .models import (
+    Drug, ManufacturerHolder, Manufacturer, Type1Drug, Type2Drug,
+    MedicineCabinet, CabinetDrug
+)
 
 
 class DrugSerializer(serializers.ModelSerializer):
@@ -41,7 +44,7 @@ class DrugSerializer(serializers.ModelSerializer):
             'manufacturer_holder', 'manufacturer_holder_name', 'manufacturer_holder_abbreviation',
             'manufacturer', 'manufacturer_name', 'manufacturer_abbreviation', 'active_ingredient',
             'active_ingredient_en', 'approval_number', 'approval_date', 'atc_code', 'market_status',
-            'drug_image', 'family_use', 'is_hot'
+            'drug_image', 'family_use', 'is_hot', 'description', 'indications'
         ]
         extra_kwargs = {
             'type2_drug': {'write_only': True},
@@ -97,4 +100,89 @@ class Type1GetType2Serializer(serializers.ModelSerializer):
     class Meta:
         model = Type2Drug
         fields = ['id', 'name']  # 只序列化二级分类的id和name字段
+
+
+# ==================== 智慧药箱模块序列化器 ====================
+
+class MedicineCabinetSerializer(serializers.ModelSerializer):
+    """药箱序列化器"""
+    drug_count = serializers.SerializerMethodField(read_only=True, label="药品数量")
+    
+    class Meta:
+        model = MedicineCabinet
+        fields = ['id', 'name', 'cabinet_type', 'description', 'is_default', 'drug_count', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_drug_count(self, obj):
+        return obj.drugs.count()
+
+
+class CabinetDrugListSerializer(serializers.ModelSerializer):
+    """药箱药品列表序列化器（用于展示）"""
+    drug_name = serializers.CharField(source='drug.drug_name', read_only=True)
+    drug_trade_name = serializers.CharField(source='drug.trade_name', read_only=True)
+    drug_image = serializers.ImageField(source='drug.drug_image', read_only=True)
+    drug_specification = serializers.CharField(source='drug.specification', read_only=True)
+    drug_dosage_form = serializers.CharField(source='drug.dosage_form', read_only=True)
+    manufacturer_name = serializers.CharField(source='drug.manufacturer.name', read_only=True)
+    
+    # 过期状态
+    is_expired = serializers.SerializerMethodField(read_only=True)
+    is_expiring_soon = serializers.SerializerMethodField(read_only=True)
+    days_until_expiry = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        model = CabinetDrug
+        fields = [
+            'id', 'drug', 'drug_name', 'drug_trade_name', 'drug_image', 'drug_specification',
+            'drug_dosage_form', 'manufacturer_name', 'quantity', 'unit', 'production_date',
+            'valid_until', 'batch_number', 'remind_before_days', 'is_reminded', 'notes',
+            'is_expired', 'is_expiring_soon', 'days_until_expiry', 'added_at', 'updated_at'
+        ]
+        read_only_fields = ['added_at', 'updated_at']
+    
+    def get_is_expired(self, obj):
+        return obj.is_expired()
+    
+    def get_is_expiring_soon(self, obj):
+        return obj.is_expiring_soon()
+    
+    def get_days_until_expiry(self, obj):
+        return obj.days_until_expiry()
+
+
+class CabinetDrugCreateSerializer(serializers.ModelSerializer):
+    """药箱药品创建/更新序列化器"""
+    class Meta:
+        model = CabinetDrug
+        fields = [
+            'id', 'cabinet', 'drug', 'quantity', 'unit', 'production_date',
+            'valid_until', 'batch_number', 'remind_before_days', 'notes'
+        ]
+    
+    def validate(self, data):
+        # 验证有效期必须晚于生产日期
+        production_date = data.get('production_date')
+        valid_until = data.get('valid_until')
+        
+        if production_date and valid_until and valid_until <= production_date:
+            raise serializers.ValidationError("有效期必须晚于生产日期")
+        
+        return data
+
+
+class CabinetDrugUpdateSerializer(serializers.ModelSerializer):
+    """药箱药品更新序列化器（部分更新）"""
+    class Meta:
+        model = CabinetDrug
+        fields = ['quantity', 'unit', 'production_date', 'valid_until', 'batch_number', 'remind_before_days', 'notes']
+        partial = True
+
+
+class ExpiringDrugSerializer(serializers.Serializer):
+    """即将过期药品统计序列化器"""
+    expiring_count = serializers.IntegerField()
+    expired_count = serializers.IntegerField()
+    total_count = serializers.IntegerField()
+    expiring_drugs = CabinetDrugListSerializer(many=True)
         

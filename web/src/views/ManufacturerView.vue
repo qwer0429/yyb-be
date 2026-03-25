@@ -1,197 +1,102 @@
 <template>
   <div class="manufacturer-page">
-    <el-row :gutter="24">
-      <!-- 上市许可持有人 -->
-      <el-col :span="12">
-        <el-card shadow="hover" class="manufacturer-card">
-          <template #header>
-            <div class="card-header">
-              <div class="header-title">
-                <div class="icon-wrapper blue">
-                  <el-icon :size="20"><OfficeBuilding /></el-icon>
-                </div>
-                <div class="title-content">
-                  <span class="title-text">上市许可持有人</span>
-                  <span class="subtitle">Marketing Authorization Holder</span>
-                </div>
-                <el-tag type="info" size="small" class="count-tag">{{ holderList.length }}</el-tag>
-              </div>
-              <el-button type="primary" @click="handleAddHolder" class="add-btn">
-                <el-icon><Plus /></el-icon>新增
-              </el-button>
+    <div class="page-header">
+      <h2>厂商管理</h2>
+      <p>管理上市许可持有人和生产厂商信息</p>
+    </div>
+
+    <el-tabs v-model="activeTab" class="manufacturer-tabs" type="border-card">
+      <el-tab-pane label="上市许可持有人" name="holder">
+        <div class="tab-header">
+          <span class="tab-desc">管理药品上市许可持有人信息</span>
+          <el-button type="primary" @click="handleAddHolder">
+            <el-icon><Plus /></el-icon>新增持有人
+          </el-button>
+        </div>
+
+        <div v-loading="loading1" class="manufacturer-grid">
+          <div v-for="item in holderList" :key="item.id" class="manufacturer-card">
+            <div class="card-icon blue">
+              <el-icon :size="32"><OfficeBuilding /></el-icon>
             </div>
-          </template>
-          
-          <div v-loading="loading1" class="table-container">
-            <el-table 
-              :data="holderList" 
-              stripe 
-              class="custom-table"
-              :header-cell-style="{ background: '#f5f7fa', fontWeight: 600 }"
-            >
-              <el-table-column prop="id" label="ID" width="60" align="center">
-                <template #default="{ row }">
-                  <span class="id-badge">{{ row.id }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="全称" min-width="140" show-overflow-tooltip />
-              <el-table-column prop="abbreviation" label="简称" width="80" align="center">
-                <template #default="{ row }">
-                  <el-tag v-if="row.abbreviation" type="primary" size="small" effect="plain">
-                    {{ row.abbreviation }}
-                  </el-tag>
-                  <span v-else class="empty-text">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="100" align="center">
-                <template #default="{ row }">
-                  <div class="action-group">
-                    <el-button 
-                      type="primary" 
-                      text
-                      size="small"
-                      @click="handleEditHolder(row)"
-                    >
-                      <el-icon><Edit /></el-icon>编辑
-                    </el-button>
-                    <el-button 
-                      type="danger" 
-                      text
-                      size="small"
-                      @click="handleDeleteHolder(row)"
-                    >
-                      <el-icon><Delete /></el-icon>删除
-                    </el-button>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-            
-            <el-empty v-if="!loading1 && holderList.length === 0" description="暂无数据">
-              <el-button type="primary" @click="handleAddHolder">
-                <el-icon><Plus /></el-icon>添加持有人
-              </el-button>
-            </el-empty>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <!-- 生产厂商 -->
-      <el-col :span="12">
-        <el-card shadow="hover" class="manufacturer-card">
-          <template #header>
-            <div class="card-header">
-              <div class="header-title">
-                <div class="icon-wrapper green">
-                  <el-icon :size="20"><Factory /></el-icon>
-                </div>
-                <div class="title-content">
-                  <span class="title-text">生产厂商</span>
-                  <span class="subtitle">Manufacturer</span>
-                </div>
-                <el-tag type="info" size="small" class="count-tag">{{ manufacturerList.length }}</el-tag>
+            <div class="card-content">
+              <h4 class="card-title">{{ item.name }}</h4>
+              <div class="card-tags">
+                <el-tag v-if="item.abbreviation" type="primary" size="small" effect="light">{{ item.abbreviation }}</el-tag>
+                <el-tag type="info" size="small" effect="plain">ID: {{ item.id }}</el-tag>
               </div>
-              <el-button type="success" @click="handleAddManufacturer" class="add-btn">
-                <el-icon><Plus /></el-icon>新增
-              </el-button>
             </div>
-          </template>
-          
-          <div v-loading="loading2" class="table-container">
-            <el-table 
-              :data="manufacturerList" 
-              stripe 
-              class="custom-table"
-              :header-cell-style="{ background: '#f5f7fa', fontWeight: 600 }"
-            >
-              <el-table-column prop="id" label="ID" width="60" align="center">
-                <template #default="{ row }">
-                  <span class="id-badge">{{ row.id }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="全称" min-width="140" show-overflow-tooltip />
-              <el-table-column prop="abbreviation" label="简称" width="80" align="center">
-                <template #default="{ row }">
-                  <el-tag v-if="row.abbreviation" type="success" size="small" effect="plain">
-                    {{ row.abbreviation }}
-                  </el-tag>
-                  <span v-else class="empty-text">-</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="100" align="center">
-                <template #default="{ row }">
-                  <div class="action-group">
-                    <el-button 
-                      type="primary" 
-                      text
-                      size="small"
-                      @click="handleEditManufacturer(row)"
-                    >
-                      <el-icon><Edit /></el-icon>编辑
-                    </el-button>
-                    <el-button 
-                      type="danger" 
-                      text
-                      size="small"
-                      @click="handleDeleteManufacturer(row)"
-                    >
-                      <el-icon><Delete /></el-icon>删除
-                    </el-button>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-            
-            <el-empty v-if="!loading2 && manufacturerList.length === 0" description="暂无数据">
-              <el-button type="success" @click="handleAddManufacturer">
-                <el-icon><Plus /></el-icon>添加厂商
-              </el-button>
-            </el-empty>
+            <div class="card-actions">
+              <el-button type="primary" text size="small" @click="handleEditHolder(item)"><el-icon><Edit /></el-icon></el-button>
+              <el-button type="danger" text size="small" @click="handleDeleteHolder(item)"><el-icon><Delete /></el-icon></el-button>
+            </div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 表单对话框 -->
-    <el-dialog 
-      v-model="dialogVisible" 
-      :title="dialogTitle" 
-      width="480px"
-      destroy-on-close
-      align-center
-      class="manufacturer-dialog"
-    >
-      <el-form 
-        :model="form" 
-        :rules="rules" 
-        ref="formRef" 
-        label-width="90px"
-        class="manufacturer-form"
-      >
+
+          <div class="manufacturer-card add-card" @click="handleAddHolder">
+            <div class="add-icon blue"><el-icon :size="32"><Plus /></el-icon></div>
+            <div class="card-content">
+              <h4 class="card-title">新增持有人</h4>
+              <p class="card-desc">点击添加新的上市许可持有人</p>
+            </div>
+          </div>
+        </div>
+
+        <el-empty v-if="!loading1 && holderList.length === 0" description="暂无上市许可持有人数据">
+          <el-button type="primary" @click="handleAddHolder"><el-icon><Plus /></el-icon>添加持有人</el-button>
+        </el-empty>
+      </el-tab-pane>
+
+      <el-tab-pane label="生产厂商" name="manufacturer">
+        <div class="tab-header">
+          <span class="tab-desc">管理药品生产厂商信息</span>
+          <el-button type="success" @click="handleAddManufacturer">
+            <el-icon><Plus /></el-icon>新增厂商
+          </el-button>
+        </div>
+
+        <div v-loading="loading2" class="manufacturer-grid">
+          <div v-for="item in manufacturerList" :key="item.id" class="manufacturer-card">
+            <div class="card-icon green"><el-icon :size="32"><Factory /></el-icon></div>
+            <div class="card-content">
+              <h4 class="card-title">{{ item.name }}</h4>
+              <div class="card-tags">
+                <el-tag v-if="item.abbreviation" type="success" size="small" effect="light">{{ item.abbreviation }}</el-tag>
+                <el-tag type="info" size="small" effect="plain">ID: {{ item.id }}</el-tag>
+              </div>
+            </div>
+            <div class="card-actions">
+              <el-button type="primary" text size="small" @click="handleEditManufacturer(item)"><el-icon><Edit /></el-icon></el-button>
+              <el-button type="danger" text size="small" @click="handleDeleteManufacturer(item)"><el-icon><Delete /></el-icon></el-button>
+            </div>
+          </div>
+
+          <div class="manufacturer-card add-card" @click="handleAddManufacturer">
+            <div class="add-icon green"><el-icon :size="32"><Plus /></el-icon></div>
+            <div class="card-content">
+              <h4 class="card-title">新增厂商</h4>
+              <p class="card-desc">点击添加新的生产厂商</p>
+            </div>
+          </div>
+        </div>
+
+        <el-empty v-if="!loading2 && manufacturerList.length === 0" description="暂无生产厂商数据">
+          <el-button type="success" @click="handleAddManufacturer"><el-icon><Plus /></el-icon>添加厂商</el-button>
+        </el-empty>
+      </el-tab-pane>
+    </el-tabs>
+
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="500px" destroy-on-close align-center>
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
         <el-form-item label="全称" prop="name">
-          <el-input 
-            v-model="form.name" 
-            placeholder="请输入全称"
-            clearable
-            maxlength="100"
-            show-word-limit
-          />
+          <el-input v-model="form.name" placeholder="请输入全称" clearable maxlength="100" show-word-limit />
         </el-form-item>
         <el-form-item label="简称" prop="abbreviation">
-          <el-input 
-            v-model="form.abbreviation" 
-            placeholder="请输入简称（可选）"
-            clearable
-            maxlength="20"
-            show-word-limit
-          />
+          <el-input v-model="form.abbreviation" placeholder="请输入简称（可选）" clearable maxlength="20" show-word-limit />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">
-          {{ isEdit ? '保存修改' : '立即创建' }}
-        </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">{{ isEdit ? '保存修改' : '立即创建' }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -208,30 +113,20 @@ const holderList = ref([]);
 const manufacturerList = ref([]);
 const loading1 = ref(false);
 const loading2 = ref(false);
-
+const activeTab = ref('holder');
 const dialogVisible = ref(false);
 const dialogType = ref<'holder' | 'manufacturer'>('holder');
 const isEdit = ref(false);
 const submitting = ref(false);
 const formRef = ref<FormInstance>();
-
-const form = reactive({
-  id: null as number | null,
-  name: '',
-  abbreviation: ''
-});
-
-const rules: FormRules = {
-  name: [{ required: true, message: '请输入全称', trigger: 'blur' }]
-};
+const form = reactive({ id: null as number | null, name: '', abbreviation: '' });
+const rules: FormRules = { name: [{ required: true, message: '请输入全称', trigger: 'blur' }] };
 
 const dialogTitle = computed(() => {
   const typeText = dialogType.value === 'holder' ? '上市许可持有人' : '生产厂商';
-  const actionText = isEdit.value ? '编辑' : '新增';
-  return `${actionText}${typeText}`;
+  return `${isEdit.value ? '编辑' : '新增'}${typeText}`;
 });
 
-// 获取上市许可持有人列表
 const fetchHolderList = async () => {
   loading1.value = true;
   try {
@@ -244,7 +139,6 @@ const fetchHolderList = async () => {
   }
 };
 
-// 获取生产厂商列表
 const fetchManufacturerList = async () => {
   loading2.value = true;
   try {
@@ -257,297 +151,70 @@ const fetchManufacturerList = async () => {
   }
 };
 
-// 新增上市许可持有人
-const handleAddHolder = () => {
-  dialogType.value = 'holder';
-  isEdit.value = false;
-  form.id = null;
-  form.name = '';
-  form.abbreviation = '';
-  dialogVisible.value = true;
-};
-
-// 编辑上市许可持有人
-const handleEditHolder = (row: any) => {
-  dialogType.value = 'holder';
-  isEdit.value = true;
-  form.id = row.id;
-  form.name = row.name;
-  form.abbreviation = row.abbreviation || '';
-  dialogVisible.value = true;
-};
-
-// 删除上市许可持有人
+const handleAddHolder = () => { dialogType.value = 'holder'; isEdit.value = false; form.id = null; form.name = ''; form.abbreviation = ''; dialogVisible.value = true; };
+const handleEditHolder = (row: any) => { dialogType.value = 'holder'; isEdit.value = true; form.id = row.id; form.name = row.name; form.abbreviation = row.abbreviation || ''; dialogVisible.value = true; };
 const handleDeleteHolder = (row: any) => {
-  ElMessageBox.confirm(`确定要删除 "${row.name}" 吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await api.delete(`/syyb/manufacturerholder/${row.id}/`);
-      ElMessage.success('删除成功');
-      fetchHolderList();
-    } catch (error) {
-      console.error('删除失败:', error);
-    }
+  ElMessageBox.confirm(`确定要删除 "${row.name}" 吗？`, '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }).then(async () => {
+    try { await api.delete(`/syyb/manufacturerholder/${row.id}/`); ElMessage.success('删除成功'); fetchHolderList(); } catch (error) { console.error('删除失败:', error); }
   });
 };
-
-// 新增生产厂商
-const handleAddManufacturer = () => {
-  dialogType.value = 'manufacturer';
-  isEdit.value = false;
-  form.id = null;
-  form.name = '';
-  form.abbreviation = '';
-  dialogVisible.value = true;
-};
-
-// 编辑生产厂商
-const handleEditManufacturer = (row: any) => {
-  dialogType.value = 'manufacturer';
-  isEdit.value = true;
-  form.id = row.id;
-  form.name = row.name;
-  form.abbreviation = row.abbreviation || '';
-  dialogVisible.value = true;
-};
-
-// 删除生产厂商
+const handleAddManufacturer = () => { dialogType.value = 'manufacturer'; isEdit.value = false; form.id = null; form.name = ''; form.abbreviation = ''; dialogVisible.value = true; };
+const handleEditManufacturer = (row: any) => { dialogType.value = 'manufacturer'; isEdit.value = true; form.id = row.id; form.name = row.name; form.abbreviation = row.abbreviation || ''; dialogVisible.value = true; };
 const handleDeleteManufacturer = (row: any) => {
-  ElMessageBox.confirm(`确定要删除 "${row.name}" 吗？`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await api.delete(`/syyb/manufacturer/${row.id}/`);
-      ElMessage.success('删除成功');
-      fetchManufacturerList();
-    } catch (error) {
-      console.error('删除失败:', error);
-    }
+  ElMessageBox.confirm(`确定要删除 "${row.name}" 吗？`, '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }).then(async () => {
+    try { await api.delete(`/syyb/manufacturer/${row.id}/`); ElMessage.success('删除成功'); fetchManufacturerList(); } catch (error) { console.error('删除失败:', error); }
   });
 };
-
-// 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return;
-  
   await formRef.value.validate(async (valid) => {
     if (valid) {
       submitting.value = true;
       try {
         const endpoint = dialogType.value === 'holder' ? 'manufacturerholder' : 'manufacturer';
-        const payload = {
-          name: form.name,
-          abbreviation: form.abbreviation || null
-        };
-        
-        if (isEdit.value && form.id) {
-          await api.put(`/syyb/${endpoint}/${form.id}/`, payload);
-        } else {
-          await api.post(`/syyb/${endpoint}/`, payload);
-        }
-        
+        const payload = { name: form.name, abbreviation: form.abbreviation || undefined };
+        if (isEdit.value && form.id) { await api.put(`/syyb/${endpoint}/${form.id}/`, payload); } 
+        else { await api.post(`/syyb/${endpoint}/`, payload); }
         ElMessage.success(isEdit.value ? '更新成功' : '添加成功');
         dialogVisible.value = false;
-        
-        if (dialogType.value === 'holder') {
-          fetchHolderList();
-        } else {
-          fetchManufacturerList();
-        }
-      } catch (error) {
-        console.error('提交失败:', error);
-      } finally {
-        submitting.value = false;
-      }
+        dialogType.value === 'holder' ? fetchHolderList() : fetchManufacturerList();
+      } catch (error) { console.error('提交失败:', error); } 
+      finally { submitting.value = false; }
     }
   });
 };
-
-onMounted(() => {
-  fetchHolderList();
-  fetchManufacturerList();
-});
+onMounted(() => { fetchHolderList(); fetchManufacturerList(); });
 </script>
 
 <style scoped>
-.manufacturer-page {
-  padding: 0;
-}
-
-.manufacturer-card {
-  border-radius: 12px;
-  border: none;
-  transition: all 0.3s ease;
-}
-
-.manufacturer-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.icon-wrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.icon-wrapper.blue {
-  background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%);
-}
-
-.icon-wrapper.green {
-  background: linear-gradient(135deg, #67C23A 0%, #85ce61 100%);
-}
-
-.title-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.title-text {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.subtitle {
-  font-size: 12px;
-  color: #909399;
-}
-
-.count-tag {
-  font-weight: normal;
-}
-
-.add-btn {
-  border-radius: 8px;
-  padding: 8px 16px;
-}
-
-/* 表格容器 */
-.table-container {
-  min-height: 400px;
-}
-
-/* 自定义表格样式 */
-.custom-table {
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.custom-table :deep(.el-table__header-wrapper th) {
-  font-weight: 600;
-  color: #606266;
-  height: 44px;
-  background-color: #f5f7fa !important;
-}
-
-.custom-table :deep(.el-table__row) {
-  transition: all 0.2s;
-}
-
-.custom-table :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
-}
-
-/* ID 徽章 */
-.id-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 6px;
-  background-color: #f0f2f5;
-  color: #606266;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-/* 操作组 */
-.action-group {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.action-group .el-button {
-  padding: 4px 8px;
-}
-
-/* 空文本 */
-.empty-text {
-  color: #c0c4cc;
-}
-
-/* 对话框样式 */
-.manufacturer-dialog :deep(.el-dialog) {
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.manufacturer-dialog :deep(.el-dialog__header) {
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  padding: 20px 24px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.manufacturer-dialog :deep(.el-dialog__title) {
-  font-weight: 600;
-  font-size: 18px;
-  color: #303133;
-}
-
-.manufacturer-dialog :deep(.el-dialog__body) {
-  padding: 24px;
-}
-
-.manufacturer-form :deep(.el-input__wrapper) {
-  border-radius: 8px;
-}
-
-/* 空状态 */
-:deep(.el-empty) {
-  padding: 60px 0;
-}
-
-:deep(.el-empty__description) {
-  color: #909399;
-  margin-bottom: 16px;
-}
-
-/* 标签样式 */
-:deep(.el-tag) {
-  border-radius: 6px;
-  font-weight: 500;
-}
-
-/* 分割线 */
-:deep(.el-divider--vertical) {
-  margin: 0 8px;
+.manufacturer-page { padding: 0; }
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-size: 24px; font-weight: 600; color: #303133; margin: 0 0 8px 0; }
+.page-header p { font-size: 14px; color: #909399; margin: 0; }
+.manufacturer-tabs { border-radius: 12px; overflow: hidden; }
+.manufacturer-tabs :deep(.el-tabs__header) { margin: 0; background: #fff; border-bottom: 1px solid #ebeef5; }
+.manufacturer-tabs :deep(.el-tabs__content) { padding: 20px; background: #fff; }
+.tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.tab-desc { font-size: 14px; color: #909399; }
+.manufacturer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.manufacturer-card { display: flex; align-items: center; gap: 16px; padding: 20px; background: #fff; border-radius: 12px; border: 1px solid #ebeef5; transition: all 0.3s ease; position: relative; }
+.manufacturer-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.manufacturer-card.add-card { border-style: dashed; background: #fafafa; cursor: pointer; }
+.manufacturer-card.add-card:hover { background: #f0f9ff; border-color: #409eff; }
+.card-icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.card-icon.blue { background: linear-gradient(135deg, #409EFF 0%, #79bbff 100%); }
+.card-icon.green { background: linear-gradient(135deg, #67C23A 0%, #95d475 100%); }
+.add-icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.add-icon.blue { background: #e6f2ff; color: #409eff; }
+.add-icon.green { background: #f0f9eb; color: #67c23a; }
+.card-content { flex: 1; min-width: 0; }
+.card-title { font-size: 16px; font-weight: 600; color: #303133; margin: 0 0 8px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-desc { font-size: 13px; color: #909399; margin: 0; }
+.card-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.card-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.3s ease; }
+.manufacturer-card:hover .card-actions { opacity: 1; }
+@media (max-width: 768px) {
+  .manufacturer-grid { grid-template-columns: 1fr; }
+  .tab-header { flex-direction: column; gap: 12px; align-items: flex-start; }
 }
 </style>

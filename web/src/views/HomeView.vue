@@ -56,14 +56,14 @@
       </el-col>
       
       <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
+        <el-card class="stat-card" shadow="hover" @click="$router.push('/cabinets')">
           <div class="stat-item">
-            <div class="stat-icon purple">
-              <el-icon :size="32"><User /></el-icon>
+            <div class="stat-icon red">
+              <el-icon :size="32"><Box /></el-icon>
             </div>
             <div class="stat-info">
-              <p class="stat-value">{{ stats.userCount }}</p>
-              <p class="stat-label">用户数量</p>
+              <p class="stat-value">{{ stats.cabinetDrugCount }}</p>
+              <p class="stat-label">药箱药品</p>
             </div>
           </div>
         </el-card>
@@ -103,6 +103,12 @@
                 <el-icon :size="24"><Search /></el-icon>
               </div>
               <span>药品搜索</span>
+            </div>
+            <div class="action-item" @click="$router.push('/cabinets')">
+              <div class="action-icon red">
+                <el-icon :size="24"><Box /></el-icon>
+              </div>
+              <span>智慧药箱</span>
             </div>
           </div>
         </el-card>
@@ -144,7 +150,7 @@ const stats = ref({
   drugCount: 0,
   categoryCount: 0,
   manufacturerCount: 0,
-  userCount: 0
+  cabinetDrugCount: 0
 });
 
 // 热门药品
@@ -153,18 +159,19 @@ const hotDrugs = ref([]);
 // 获取统计数据
 const fetchStats = async () => {
   try {
-    const [drugRes, type1Res, type2Res, holderRes, mfrRes] = await Promise.all([
+    const [drugRes, type1Res, type2Res, holderRes, mfrRes, expiringRes] = await Promise.all([
       api.get('/syyb/drug/'),
       api.get('/syyb/type1drug/'),
       api.get('/syyb/type2drug/'),
       api.get('/syyb/manufacturerholder/'),
-      api.get('/syyb/manufacturer/')
+      api.get('/syyb/manufacturer/'),
+      api.get('/syyb/expiring_drugs/').catch(() => ({ data: { total_count: 0 } }))
     ]);
     
     stats.value.drugCount = drugRes.data.count || 0;
     stats.value.categoryCount = (type1Res.data.count || 0) + (type2Res.data.count || 0);
     stats.value.manufacturerCount = (holderRes.data.count || 0) + (mfrRes.data.count || 0);
-    stats.value.userCount = 1; // 暂时固定
+    stats.value.cabinetDrugCount = expiringRes.data.total_count || 0;
     
     // 获取热门药品（前5个）
     const drugs = drugRes.data.results || [];
@@ -267,6 +274,10 @@ onMounted(() => {
   background: linear-gradient(135deg, #8E44AD 0%, #bb8fce 100%);
 }
 
+.stat-icon.red {
+  background: linear-gradient(135deg, #F56C6C 0%, #fab6b6 100%);
+}
+
 .stat-info {
   flex: 1;
 }
@@ -341,6 +352,10 @@ onMounted(() => {
 
 .action-icon.purple {
   background: linear-gradient(135deg, #8E44AD 0%, #bb8fce 100%);
+}
+
+.action-icon.red {
+  background: linear-gradient(135deg, #F56C6C 0%, #fab6b6 100%);
 }
 
 .action-item span {

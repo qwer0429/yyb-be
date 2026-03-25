@@ -17,10 +17,10 @@ from django.contrib import admin
 from django.urls import path, include
 from .views import *
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView
 )
+from susers.views import CustomTokenObtainPairView
 import simpleserver.settings as settings
 from django.conf.urls.static import static
 #from sblogmd import urls as sblogmd_urls
@@ -34,8 +34,8 @@ urlpatterns = [
 #    path('admin/', admin.site.urls),
     # DRF 提供的一系列身份认证的接口，用于在页面中认证身份，详情查阅DRF文档
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
-    # 获取Token的接口
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # 获取Token的接口（自定义，返回用户角色信息）
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     # 刷新Token有效期的接口
     path('api/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # 验证Token的有效性

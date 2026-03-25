@@ -21,30 +21,44 @@ __pycache__/
 db.sqlite3
 *.log
 local_settings.py
+
+# Config files with sensitive data
 config.yml
 simpleserver/config.yml
+django/simpleserver/config.yml
+django/**/config.yml
 
 # Migrations (保留 __init__.py，但忽略生成的迁移文件)
 */migrations/*.py
 !*/migrations/__init__.py
 */migrations/__pycache__/
-susers/migrations/
-sen/migrations/
-sgpt/migrations/
-syyb/migrations/
+django/**/migrations/*.py
+!django/**/migrations/__init__.py
 
 # Media uploads
 drug_images/
 media/
+staticfiles/
 
 # ============================================
 # Frontend (Node.js)
 # ============================================
 
+# Dependencies
 node_modules/
+web/node_modules/
+user_web/node_modules/
+
+# Build outputs
 dist/
 dist-ssr/
+build/
+
+# Local env files
 *.local
+.env
+.env.*
+!.env.example
 
 # ============================================
 # IDE / Editor
@@ -54,11 +68,14 @@ dist-ssr/
 .vscode/
 !.vscode/extensions.json
 .vscode/launch.json
+.vscode/settings.json
 
 # JetBrains (PyCharm, WebStorm, etc)
-**/.idea/log/zzswork_error.log
-**/.idea/log/zzswork.log
+.idea/
+**/.idea/
 *.iml
+*.ipr
+*.iws
 
 # ============================================
 # OS Files
@@ -68,11 +85,17 @@ dist-ssr/
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
 
 # Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
 
 # ============================================
 # Logs & Temp
@@ -83,7 +106,13 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
+# Temp files
+tmp/
+temp/
+*.tmp
 
 # ============================================
 # History / Backup
@@ -95,4 +124,22 @@ yarn-error.log*
 *.swo
 *~
 
-django/simpleserver/config.yml
+# ============================================
+# Project Specific
+# ============================================
+
+# Test data
+test_data.sql
+generate_test_data.py
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json

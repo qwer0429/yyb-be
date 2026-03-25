@@ -1,40 +1,63 @@
 @echo off
-chcp 65001 >nul
-echo ===================================
-echo    医药宝管理系统 - 启动脚本
-echo ===================================
-echo.
-echo 请选择要启动的服务：
-echo 1. 启动后端服务 (Django)
-echo 2. 启动前端服务 (Vue)
-echo 3. 同时启动前后端（需要两个窗口）
-echo.
-set /p choice=请输入选项 (1/2/3): 
+chcp 65001
 
-if "%choice%"=="1" (
-    echo.
-    echo 正在启动后端服务...
-    cd django
-    echo 访问地址: http://127.0.0.1:8000
-    python manage.py runserver
-) else if "%choice%"=="2" (
-    echo.
-    echo 正在启动前端服务...
-    cd web
-    echo 访问地址: http://localhost:5173
-    npm run dev
-) else if "%choice%"=="3" (
-    echo.
-    echo 正在启动后端服务（新窗口）...
-    start "Django Backend" cmd /k "cd django && python manage.py runserver"
-    echo 正在启动前端服务（新窗口）...
-    start "Vue Frontend" cmd /k "cd web && npm run dev"
-    echo.
-    echo 服务已启动：
-    echo 后端: http://127.0.0.1:8000
-    echo 前端: http://localhost:5173
-    pause
-) else (
-    echo 无效选项，请重新运行脚本
-    pause
-)
+echo ========================================
+echo    医药宝管理系统启动脚本
+echo ========================================
+echo.
+echo 请选择要启动的系统：
+echo 1. 启动后端服务 (Django)
+echo 2. 启动后台管理系统 (管理员端)
+echo 3. 启动用户端系统
+echo 4. 启动所有服务
+echo 5. 退出
+echo.
+
+set /p choice=请输入选项 (1-5): 
+
+if "%choice%"=="1" goto start_backend
+if "%choice%"=="2" goto start_admin
+if "%choice%"=="3" goto start_user
+if "%choice%"=="4" goto start_all
+if "%choice%"=="5" goto end
+
+echo 无效的选项，请重新运行脚本
+pause
+exit
+
+:start_backend
+echo 正在启动后端服务...
+cd django
+start cmd /k "venv\Scripts\activate && python manage.py runserver 0.0.0.0:8000"
+cd ..
+goto end
+
+:start_admin
+echo 正在启动后台管理系统...
+cd web
+start cmd /k "npm run dev"
+cd ..
+goto end
+
+:start_user
+echo 正在启动用户端系统...
+cd user_web
+start cmd /k "npm install && npm run dev"
+cd ..
+goto end
+
+:start_all
+echo 正在启动所有服务...
+cd django
+start cmd /k "venv\Scripts\activate && python manage.py runserver 0.0.0.0:8000"
+cd ..
+cd web
+start cmd /k "npm run dev"
+cd ..
+cd user_web
+start cmd /k "npm install && npm run dev"
+cd ..
+goto end
+
+:end
+pause

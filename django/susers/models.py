@@ -27,6 +27,9 @@ class User(AbstractUser):
         choices=SEX_CHOICES,  # 使用上面定义的选择列表
         default=1,  # 默认值为1，代表学生
     )
+    
+    # 角色字段：True=管理员，False=普通用户
+    is_admin = models.BooleanField(default=False, verbose_name='是否管理员')
 
 
 

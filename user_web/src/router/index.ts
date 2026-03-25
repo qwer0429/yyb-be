@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
-// 路由配置
 const routes = [
   {
     path: '/login',
@@ -19,26 +18,20 @@ const routes = [
   {
     path: '/drugs',
     name: 'drugs',
-    component: () => import('../views/DrugListView.vue'),
-    meta: { title: '药品管理' }
+    component: () => import('../views/DrugBrowseView.vue'),
+    meta: { title: '药品浏览' }
   },
   {
     path: '/categories',
     name: 'categories',
-    component: () => import('../views/CategoryView.vue'),
-    meta: { title: '分类管理' }
-  },
-  {
-    path: '/manufacturers',
-    name: 'manufacturers',
-    component: () => import('../views/ManufacturerView.vue'),
-    meta: { title: '厂商管理' }
+    component: () => import('../views/CategoryBrowseView.vue'),
+    meta: { title: '分类浏览' }
   },
   {
     path: '/cabinets',
     name: 'cabinets',
     component: () => import('../views/MedicineCabinetView.vue'),
-    meta: { title: '智慧药箱' }
+    meta: { title: '我的药箱' }
   },
   // 404 页面
   {
@@ -62,7 +55,7 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   
   // 设置页面标题
-  document.title = to.meta.title ? `${to.meta.title} - 医药宝` : '医药宝管理系统'
+  document.title = to.meta.title ? `${to.meta.title} - 医药宝用户端` : '医药宝用户端'
   
   // 公开页面直接放行
   if (to.meta.public) {
