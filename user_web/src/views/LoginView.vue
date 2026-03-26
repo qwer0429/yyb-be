@@ -50,8 +50,9 @@
       </el-form>
       
       <div class="login-footer">
-        <p>© 2024 医药宝 - 用户端系统</p>
+        <p>还没有账号？<router-link to="/register" class="register-link">立即注册</router-link></p>
         <p class="admin-tip">管理员请访问后台管理系统</p>
+        <p class="copyright">© 2024 医药宝 - 用户端系统</p>
       </div>
     </div>
   </div>
@@ -163,13 +164,32 @@ const handleLogin = async () => {
 }
 
 .login-footer p {
-  color: #c0c4cc;
-  font-size: 12px;
+  color: #606266;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.register-link {
+  color: #409EFF;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.register-link:hover {
+  color: #66b1ff;
+  text-decoration: underline;
 }
 
 .admin-tip {
   margin-top: 8px;
   color: #909399;
+  font-size: 12px;
+}
+
+.copyright {
+  color: #c0c4cc;
+  font-size: 12px;
+  margin-top: 16px;
 }
 
 @media (max-width: 480px) {

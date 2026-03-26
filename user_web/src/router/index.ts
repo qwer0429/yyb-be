@@ -10,6 +10,12 @@ const routes = [
     meta: { public: true, title: '登录' }
   },
   {
+    path: '/register',
+    name: 'register',
+    component: () => import('../views/RegisterView.vue'),
+    meta: { public: true, title: '注册' }
+  },
+  {
     path: '/',
     name: 'home',
     component: () => import('../views/HomeView.vue'),
@@ -59,8 +65,8 @@ router.beforeEach((to, from, next) => {
   
   // 公开页面直接放行
   if (to.meta.public) {
-    // 已登录用户访问登录页，重定向到首页
-    if (authStore.isAuthenticated && to.path === '/login') {
+    // 已登录用户访问登录页或注册页，重定向到首页
+    if (authStore.isAuthenticated && (to.path === '/login' || to.path === '/register')) {
       next('/')
       return
     }

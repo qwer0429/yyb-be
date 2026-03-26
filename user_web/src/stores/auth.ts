@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api'
 import { ElMessage } from 'element-plus'
+import { encryptPassword } from '../utils/crypto'
 
 interface User {
   id: number
@@ -31,12 +32,53 @@ export const useAuthStore = defineStore('auth', () => {
   const isRegularUser = computed(() => user.value?.is_admin === false)
 
   // Actions
+  const register = async (userData: {
+    username: string
+    password: string
+    password_confirm: string
+    mobile?: string
+    name?: string
+  }) => {
+    isLoading.value = true
+    try {
+      // 加密密码
+      const encryptedData = {
+        ...userData,
+        password: encryptPassword(userData.password),
+        password_confirm: encryptPassword(userData.password_confirm)
+      }
+      const response = await api.post<TokenResponse>('/api/register/', encryptedData)
+      
+      accessToken.value = response.data.access
+      refreshToken.value = response.data.refresh
+      
+      localStorage.setItem('access_token', response.data.access)
+      localStorage.setItem('refresh_token', response.data.refresh)
+      
+      // 保存用户信息
+      if (response.data.user) {
+        user.value = response.data.user
+        localStorage.setItem('user_info', JSON.stringify(response.data.user))
+      }
+      
+      ElMessage.success('注册成功')
+      return true
+    } catch (error: any) {
+      const msg = error.response?.data?.error || '注册失败，请稍后重试'
+      ElMessage.error(msg)
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   const login = async (username: string, password: string) => {
     isLoading.value = true
     try {
+      // 加密密码
       const response = await api.post<TokenResponse>('/api/token/', {
         username,
-        password
+        password: encryptPassword(password)
       })
       
       // 检查是否为管理员，管理员不能登录用户端
@@ -119,6 +161,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     username,
     isRegularUser,
+    register,
     login,
     logout,
     refreshAccessToken,

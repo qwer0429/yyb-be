@@ -27,7 +27,8 @@ from rest_framework_simplejwt.views import (
 
 app_name = 'susers'
 urlpatterns = [
-
+    # 用户注册接口
+    path('api/register/', UserRegisterView.as_view(), name='register'),
 ]
 router = DefaultRouter()
 

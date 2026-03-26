@@ -1,7 +1,7 @@
 <template>
   <div class="app-wrapper">
-    <!-- 登录页单独布局 -->
-    <template v-if="isLoginPage">
+    <!-- 登录/注册页单独布局（无侧边栏） -->
+    <template v-if="isPublicPage">
       <router-view />
     </template>
     
@@ -110,7 +110,7 @@ const authStore = useAuthStore()
 
 const isCollapse = ref(false)
 
-const isLoginPage = computed(() => route.path === '/login')
+const isPublicPage = computed(() => route.path === '/login' || route.path === '/register')
 const activeMenu = computed(() => route.path)
 
 const pageTitle = computed(() => {
