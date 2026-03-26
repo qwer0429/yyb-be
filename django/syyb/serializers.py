@@ -11,6 +11,7 @@ class DrugListSerializer(serializers.ModelSerializer):
     type1_drug = serializers.CharField(source='type2_drug.type1_drug.name', read_only=True)
     manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
     manufacturer_abbreviation = serializers.CharField(source='manufacturer.abbreviation', read_only=True)
+    manufacturer_id = serializers.IntegerField(source='manufacturer.id', read_only=True)
     manufacturer_holder_name = serializers.CharField(source='manufacturer_holder.name', read_only=True)
     drug_image = serializers.SerializerMethodField()
     
@@ -19,7 +20,7 @@ class DrugListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
             'specification', 'dosage_form', 'medical_insurance',
-            'type2_drug_name', 'type1_drug', 'manufacturer_name', 
+            'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
             'manufacturer_abbreviation', 'manufacturer_holder_name',
             'approval_number', 'approval_date', 'atc_code',
             'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
@@ -62,8 +63,13 @@ class DrugSerializer(serializers.ModelSerializer):
     manufacturer_abbreviation = serializers.CharField(
         source='manufacturer.abbreviation', read_only=True, label="生产厂商简称"
     )
+    # 用于读取厂商ID（编辑时显示）
+    manufacturer_id = serializers.IntegerField(
+        source='manufacturer.id', read_only=True, label="生产厂商ID"
+    )
+    # 用于写入厂商ID
     manufacturer = serializers.PrimaryKeyRelatedField(
-        queryset=Manufacturer.objects.all(), write_only=True, label="生产厂商ID"
+        queryset=Manufacturer.objects.all(), write_only=True, label="生产厂商ID", required=False, allow_null=True
     )
     
     # 图片字段返回完整URL
@@ -75,7 +81,7 @@ class DrugSerializer(serializers.ModelSerializer):
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en', 'medical_insurance', 'jd_url', 'category',
             'type2_drug', 'type2_drug_name', 'type1_drug', 'specification', 'dosage_form', 'administration_route',
             'manufacturer_holder', 'manufacturer_holder_name', 'manufacturer_holder_abbreviation',
-            'manufacturer', 'manufacturer_name', 'manufacturer_abbreviation', 'active_ingredient',
+            'manufacturer', 'manufacturer_id', 'manufacturer_name', 'manufacturer_abbreviation', 'active_ingredient',
             'active_ingredient_en', 'approval_number', 'approval_date', 'atc_code', 'market_status',
             'drug_image', 'family_use', 'is_hot', 'description', 'indications'
         ]

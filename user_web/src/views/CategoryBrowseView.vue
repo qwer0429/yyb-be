@@ -174,6 +174,17 @@
           <h4><el-icon><Document /></el-icon> 药品说明</h4>
           <p class="description-text">{{ currentDrug.description }}</p>
         </div>
+        
+        <!-- 用药提示 -->
+        <div class="detail-section medical-warning">
+          <el-alert
+            title="用药提示"
+            description="此用药说明仅供参考，用药前请咨询专业医生。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+        </div>
       </div>
 
       <template #footer>

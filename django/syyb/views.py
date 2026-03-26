@@ -248,12 +248,13 @@ class DrugViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         # 使用 select_related 预加载关联对象，避免 N+1 查询问题
+        # 排序：有图片的在前 -> 热门药品 -> 按ID倒序
         return Drug.objects.select_related(
             'manufacturer',
             'manufacturer_holder',
             'type2_drug',
             'type2_drug__type1_drug'
-        ).order_by("-is_hot", "-id")
+        ).order_by("-drug_image", "-is_hot", "-id")
 
 
 class Type1DrugViewSet(mixins.ListModelMixin,
@@ -1710,8 +1711,10 @@ def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicat
 
                 # 收集生产商数据
                 manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                manufacturer_abb = get_row_value(row, 'Manufacturer_abb')
                 if manufacturer_name:
-                    manufacturer_names[manufacturer_name] = get_row_value(row, 'Manufacturer_abb')
+                    manufacturer_names[manufacturer_name] = manufacturer_abb
+                    logger.info(f"收集厂商: name={manufacturer_name}, abb={manufacturer_abb}")
 
                 # 保存行数据供后续使用
                 all_rows.append({
@@ -1879,10 +1882,14 @@ def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicat
 
                     # 关联生产商
                     manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                    logger.info(f"处理药品 '{drug_name}' 的厂商关联: name={manufacturer_name}, 可用厂商={list(manufacturer_objs.keys())[:5]}...")
                     if manufacturer_name:
                         manufacturer_obj = manufacturer_objs.get(manufacturer_name)
                         if manufacturer_obj:
                             drug_data["manufacturer"] = manufacturer_obj
+                            logger.info(f"  -> 成功关联厂商: {manufacturer_name} (ID: {manufacturer_obj.id})")
+                        else:
+                            logger.warning(f"  -> 未找到厂商对象: {manufacturer_name}")
 
                     # 方案C：使用药品名+厂商+批准文号作为唯一键
                     drug_name = drug_data['drug_name']

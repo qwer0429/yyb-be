@@ -3,7 +3,7 @@ from rest_framework.response import Response
 
 
 class CustomPagination(PageNumberPagination):
-    page_size = 50  # 每页显示的记录数
+    page_size = 1000  # 每页显示的记录数
     page_size_query_param = "page_size"  # 允许客户端通过参数指定每页大小
     max_page_size = 2000  # 每页最大记录数
     

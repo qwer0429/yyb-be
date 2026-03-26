@@ -53,6 +53,31 @@
       </el-col>
     </el-row>
 
+    <!-- 过期药品警告提示 -->
+    <el-alert
+      v-if="stats.expired > 0 || stats.expiringSoon > 0"
+      :title="alertTitle"
+      :type="stats.expired > 0 ? 'error' : 'warning'"
+      :description="alertDescription"
+      show-icon
+      :closable="false"
+      class="expiry-alert"
+      @click="$router.push('/cabinets')"
+    >
+      <template #default>
+        <div class="alert-content">
+          <span>{{ alertDescription }}</span>
+          <el-button 
+            :type="stats.expired > 0 ? 'danger' : 'warning'" 
+            size="small" 
+            @click.stop="$router.push('/cabinets')"
+          >
+            查看详情
+          </el-button>
+        </div>
+      </template>
+    </el-alert>
+
     <!-- 统计信息 -->
     <el-card class="stats-card" shadow="never">
       <template #header>
@@ -115,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '../api'
 import { FirstAidKit, Collection, Box, Search, FolderOpened, Plus } from '@element-plus/icons-vue'
 
@@ -124,6 +149,28 @@ const stats = ref({
   validDrugs: 0,
   expiringSoon: 0,
   expired: 0
+})
+
+// 警告标题
+const alertTitle = computed(() => {
+  if (stats.value.expired > 0) {
+    return `⚠️ 您有 ${stats.value.expired} 个药品已过期`
+  } else if (stats.value.expiringSoon > 0) {
+    return `⏰ 您有 ${stats.value.expiringSoon} 个药品即将过期`
+  }
+  return ''
+})
+
+// 警告描述
+const alertDescription = computed(() => {
+  if (stats.value.expired > 0 && stats.value.expiringSoon > 0) {
+    return `其中 ${stats.value.expired} 个已过期，${stats.value.expiringSoon} 个将在7天内过期，请及时处理。`
+  } else if (stats.value.expired > 0) {
+    return '过期药品可能失效或产生有害物质，请及时清理并更换。'
+  } else if (stats.value.expiringSoon > 0) {
+    return '这些药品将在7天内过期，请尽快使用或更新。'
+  }
+  return ''
 })
 
 const fetchStats = async () => {
@@ -294,5 +341,30 @@ onMounted(() => {
 
 .action-item:hover {
   background: #e6f2ff;
+}
+
+/* 过期药品警告提示 */
+.expiry-alert {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.expiry-alert:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.alert-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.alert-content span {
+  flex: 1;
 }
 </style>

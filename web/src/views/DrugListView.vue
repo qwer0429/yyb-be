@@ -107,6 +107,11 @@
           
           <p class="drug-spec">{{ drug.specification || '暂无规格信息' }}</p>
           
+          <p v-if="drug.manufacturer_name" class="drug-manufacturer">
+            <el-icon :size="14" color="#909399"><OfficeBuilding /></el-icon>
+            <span>{{ drug.manufacturer_name }}</span>
+          </p>
+          
           <div v-if="drug.indications" class="drug-indications">
             <el-icon :size="14" color="#67C23A"><FirstAidKit /></el-icon>
             <span>{{ drug.indications }}</span>
@@ -232,11 +237,21 @@
         </el-row>
         
         <el-form-item label="生产厂商" prop="manufacturer">
+          <!-- 编辑时显示当前厂商名称和更换按钮 -->
+          <div v-if="isEdit && drugForm.manufacturer" class="manufacturer-display">
+            <span class="manufacturer-name">{{ getManufacturerName(drugForm.manufacturer) }}</span>
+            <el-button type="primary" link size="small" @click="showManufacturerSelect = true">
+              更换厂商
+            </el-button>
+          </div>
+          <!-- 下拉框选择厂商 -->
           <el-select
+            v-if="!isEdit || !drugForm.manufacturer || showManufacturerSelect"
             v-model="drugForm.manufacturer"
             placeholder="选择生产厂商"
             filterable
             style="width: 100%"
+            @change="showManufacturerSelect = false"
           >
             <el-option
               v-for="item in manufacturerOptions"
@@ -347,6 +362,17 @@
             药品说明
           </h4>
           <div class="section-content description-text">{{ currentDrug.description }}</div>
+        </div>
+        
+        <!-- 用药提示 -->
+        <div class="detail-section medical-warning">
+          <el-alert
+            title="用药提示"
+            description="此用药说明仅供参考，用药前请咨询专业医生。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
         </div>
       </div>
       <template #footer>
@@ -482,7 +508,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { 
   Search, Plus, Upload, Delete, Edit, View, FirstAidKit, 
-  Box, Download, Document, Check, InfoFilled, Picture, Camera, Close
+  Box, Download, Document, Check, InfoFilled, Picture, Camera, Close, OfficeBuilding
 } from '@element-plus/icons-vue';
 
 // 搜索表单
@@ -527,6 +553,16 @@ const drugForm = reactive({
 // 编辑表单中的图片文件
 const editImageFile = ref<File | null>(null);
 const editImagePreview = ref('');
+
+// 是否显示厂商选择下拉框
+const showManufacturerSelect = ref(false);
+
+// 根据ID获取厂商名称
+const getManufacturerName = (id: number | null) => {
+  if (!id) return '未知厂商';
+  const manufacturer = manufacturerOptions.value.find(item => item.id === id);
+  return manufacturer?.name || '未知厂商';
+};
 
 const drugRules: FormRules = {
   drug_name: [{ required: true, message: '请输入通用名', trigger: 'blur' }],
@@ -752,7 +788,14 @@ const handleAdd = () => {
 // 编辑
 const handleEdit = (row: any) => {
   isEdit.value = true;
+  // 先重置表单
+  resetForm();
+  // 复制基本字段
   Object.assign(drugForm, row);
+  // 关键：使用 manufacturer_id 作为下拉框的值
+  if (row.manufacturer_id) {
+    drugForm.manufacturer = row.manufacturer_id;
+  }
   // 重置图片编辑状态
   editImageFile.value = null;
   editImagePreview.value = '';
@@ -870,6 +913,7 @@ const resetForm = () => {
   drugForm.approval_number = '';
   drugForm.description = '';
   drugForm.indications = '';
+  showManufacturerSelect.value = false;
 };
 
 // 提交表单
@@ -1399,6 +1443,18 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+.drug-manufacturer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #909399;
+  margin: 0 0 8px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .drug-indications {
   display: flex;
   align-items: flex-start;
@@ -1628,6 +1684,23 @@ onUnmounted(() => {
   :deep(.el-upload-dragger) {
     padding: 20px;
   }
+}
+
+/* 厂商显示区域 */
+.manufacturer-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.manufacturer-name {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
 }
 
 /* 编辑表单图片区域 */

@@ -169,6 +169,17 @@
           </h4>
           <div class="section-content description-text">{{ currentDrug.description }}</div>
         </div>
+        
+        <!-- 用药提示 -->
+        <div class="detail-section medical-warning">
+          <el-alert
+            title="用药提示"
+            description="此用药说明仅供参考，用药前请咨询专业医生。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+        </div>
       </div>
       <template #footer>
         <el-button @click="viewDialogVisible = false">关闭</el-button>
@@ -295,7 +306,27 @@ const fetchDrugs = async () => {
         page_size: pageSize.value
       }
     })
-    drugs.value = response.data.results || []
+    let drugsList = response.data.results || []
+    
+    // 排序：有图片的排在前面
+    drugsList.sort((a: any, b: any) => {
+      const aHasImage = a.drug_image ? 1 : 0
+      const bHasImage = b.drug_image ? 1 : 0
+      // 先按是否有图片排序（有图片的在前）
+      if (aHasImage !== bHasImage) {
+        return bHasImage - aHasImage
+      }
+      // 都有图片或都没有图片时，按热门状态排序
+      const aIsHot = a.is_hot ? 1 : 0
+      const bIsHot = b.is_hot ? 1 : 0
+      if (aIsHot !== bIsHot) {
+        return bIsHot - aIsHot
+      }
+      // 最后按ID倒序
+      return b.id - a.id
+    })
+    
+    drugs.value = drugsList
     total.value = response.data.count || 0
   } catch (error) {
     console.error('获取药品列表失败:', error)
@@ -331,7 +362,24 @@ const searchDrugs = async () => {
     const response = await api.post('/syyb/search_anything/', {
       text: searchForm.keyword
     })
-    drugs.value = response.data.results || []
+    let drugsList = response.data.results || []
+    
+    // 排序：有图片的排在前面
+    drugsList.sort((a: any, b: any) => {
+      const aHasImage = a.drug_image ? 1 : 0
+      const bHasImage = b.drug_image ? 1 : 0
+      if (aHasImage !== bHasImage) {
+        return bHasImage - aHasImage
+      }
+      const aIsHot = a.is_hot ? 1 : 0
+      const bIsHot = b.is_hot ? 1 : 0
+      if (aIsHot !== bIsHot) {
+        return bIsHot - aIsHot
+      }
+      return b.id - a.id
+    })
+    
+    drugs.value = drugsList
     total.value = response.data.count || 0
   } catch (error) {
     console.error('搜索失败:', error)
