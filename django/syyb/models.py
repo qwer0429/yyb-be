@@ -66,10 +66,10 @@ class Drug(models.Model):
 
     # 成分与批准信息
     active_ingredient = models.CharField(max_length=255, blank=True, null=True, verbose_name="活性成分")
-    active_ingredient_en = models.CharField(max_length=255, blank=True, null=True, verbose_name="活性成分（英文）")
+    active_ingredient_en = models.CharField(max_length=1000, blank=True, null=True, verbose_name="活性成分（英文）")
     approval_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="批准文号")
     approval_date = models.DateField(blank=True, null=True, verbose_name="批准日期")
-    atc_code = models.CharField(max_length=50, blank=True, null=True, verbose_name="ATC代码", unique=True)
+    atc_code = models.CharField(max_length=50, blank=True, null=True, verbose_name="ATC代码")
     market_status = models.CharField(max_length=100, blank=True, null=True, verbose_name="上市销售状况")
     drug_image = models.ImageField(upload_to='drug_images/', blank=True, null=True, verbose_name="药品图片")
     # drug_image = models.FileField(upload_to='drug_images/', blank=True, null=True, verbose_name="药品图片")

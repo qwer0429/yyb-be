@@ -12,6 +12,8 @@ from django.http import FileResponse
 from susers.api import token_required
 from django.http import JsonResponse
 from django.db import transaction
+from django.db.models import Q
+from django import db
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view, permission_classes
@@ -29,6 +31,8 @@ import os
 import subprocess
 import random
 import logging
+import threading
+import time
 from django.db.models import Q
 from rest_framework import viewsets, filters, permissions, mixins
 from .serializers import (
@@ -46,6 +50,7 @@ from .serializers import (
     ExpiringDrugSerializer,
 )
 from .models import Drug, Manufacturer, ManufacturerHolder, Type1Drug, Type2Drug, MedicineCabinet, CabinetDrug
+from .import_tasks import task_manager, run_import_in_thread
 
 # 列名映射：中文列名 -> 英文列名
 COLUMN_NAME_MAPPING = {
@@ -112,33 +117,86 @@ logger = logging.getLogger(__name__)
 
 # Excel 导入所需的字段配置
 EXCEL_IMPORT_FIELDS = {
-    'drug_name': {'required': True, 'label': '药品名', 'description': '药品通用名（必填）'},
-    'drug_name_en': {'required': False, 'label': '药品名（英文）', 'description': '英文药品名'},
-    'trade_name': {'required': False, 'label': '商品名', 'description': '商品名/品牌名'},
-    'trade_name_en': {'required': False, 'label': '商品名（英文）', 'description': '英文商品名'},
-    'specification': {'required': False, 'label': '规格', 'description': '如：0.25g*24粒'},
-    'dosage_form': {'required': False, 'label': '剂型', 'description': '如：胶囊、片剂'},
-    'administration_route': {'required': False, 'label': '给药途径', 'description': '如：口服、注射'},
-    'active_ingredient': {'required': False, 'label': '活性成分', 'description': '主要成分'},
-    'active_ingredient_en': {'required': False, 'label': '活性成分（英文）', 'description': '英文成分名'},
-    'approval_number': {'required': False, 'label': '批准文号', 'description': '国药准字'},
+    'drug_name': {'required': True, 'label': '药品名', 'description': '药品通用名（必填）', 'max_length': 255},
+    'drug_name_en': {'required': False, 'label': '药品名（英文）', 'description': '英文药品名', 'max_length': 255},
+    'trade_name': {'required': False, 'label': '商品名', 'description': '商品名/品牌名', 'max_length': 255},
+    'trade_name_en': {'required': False, 'label': '商品名（英文）', 'description': '英文商品名', 'max_length': 255},
+    'specification': {'required': False, 'label': '规格', 'description': '如：0.25g*24粒', 'max_length': 255},
+    'dosage_form': {'required': False, 'label': '剂型', 'description': '如：胶囊、片剂', 'max_length': 100},
+    'administration_route': {'required': False, 'label': '给药途径', 'description': '如：口服、注射', 'max_length': 100},
+    'active_ingredient': {'required': False, 'label': '活性成分', 'description': '主要成分', 'max_length': 255},
+    'active_ingredient_en': {'required': False, 'label': '活性成分（英文）', 'description': '英文成分名', 'max_length': 1000},
+    'approval_number': {'required': False, 'label': '批准文号', 'description': '国药准字', 'max_length': 100},
     'approval_date': {'required': False, 'label': '批准日期', 'description': '格式：YYYY-MM-DD'},
-    'atc_code': {'required': False, 'label': 'ATC代码', 'description': 'ATC分类代码'},
-    'medical_insurance': {'required': False, 'label': '医保', 'description': '甲类/乙类/非医保'},
-    'market_status': {'required': False, 'label': '上市销售状况', 'description': '在售/停产/退市'},
-    'category': {'required': False, 'label': '收录类别', 'description': '分类信息'},
-    'family_use': {'required': False, 'label': '家庭常用清单', 'description': '常用标记'},
+    'atc_code': {'required': False, 'label': 'ATC代码', 'description': 'ATC分类代码', 'max_length': 50},
+    'medical_insurance': {'required': False, 'label': '医保', 'description': '甲类/乙类/非医保', 'max_length': 255},
+    'market_status': {'required': False, 'label': '上市销售状况', 'description': '在售/停产/退市', 'max_length': 100},
+    'category': {'required': False, 'label': '收录类别', 'description': '分类信息', 'max_length': 255},
+    'family_use': {'required': False, 'label': '家庭常用清单', 'description': '常用标记', 'max_length': 100},
     'jd_url': {'required': False, 'label': '京东链接', 'description': '电商链接'},
-    'Type1Drug_name': {'required': False, 'label': '一级分类', 'description': '如：西药'},
-    'Type2Drug_name': {'required': False, 'label': '二级分类', 'description': '如：抗生素'},
-    'Manufacturer_name': {'required': False, 'label': '生产厂商', 'description': '生产厂家全称'},
-    'Manufacturer_abb': {'required': False, 'label': '厂商简称', 'description': '厂商简称'},
-    'ManufacturerHolder_name': {'required': False, 'label': '上市许可持有人', 'description': '持有人全称'},
-    'ManufacturerHolder_abb': {'required': False, 'label': '持有人简称', 'description': '持有人简称'},
+    'Type1Drug_name': {'required': False, 'label': '一级分类', 'description': '如：西药', 'max_length': 255},
+    'Type2Drug_name': {'required': False, 'label': '二级分类', 'description': '如：抗生素', 'max_length': 255},
+    'Manufacturer_name': {'required': False, 'label': '生产厂商', 'description': '生产厂家全称', 'max_length': 255},
+    'Manufacturer_abb': {'required': False, 'label': '厂商简称', 'description': '厂商简称', 'max_length': 100},
+    'ManufacturerHolder_name': {'required': False, 'label': '上市许可持有人', 'description': '持有人全称', 'max_length': 255},
+    'ManufacturerHolder_abb': {'required': False, 'label': '持有人简称', 'description': '持有人简称', 'max_length': 100},
     'indications': {'required': False, 'label': '适用症状', 'description': '如：感冒、发热、头痛'},
     'description': {'required': False, 'label': '药品说明', 'description': '用法用量、注意事项等'},
-    'drug_image_filename': {'required': False, 'label': '图片文件名', 'description': '图片文件名（如：drug001.jpg），需同时上传对应图片文件'},
+    'drug_image_filename': {'required': False, 'label': '图片文件名', 'description': '图片文件名（如：drug001.jpg），需同时上传对应图片文件', 'max_length': 255},
 }
+
+
+def validate_row_data(row):
+    """
+    校验单行数据是否符合字段长度限制
+    返回: (是否通过, 错误信息列表)
+    """
+    errors = []
+    
+    for field_name, config in EXCEL_IMPORT_FIELDS.items():
+        value = get_row_value(row, field_name)
+        
+        # 必填校验
+        if config.get('required') and not value:
+            errors.append(f"{config['label']} 为必填项")
+            continue
+        
+        # 长度校验
+        if value and 'max_length' in config:
+            value_str = str(value)
+            max_len = config['max_length']
+            if len(value_str) > max_len:
+                errors.append(f"{config['label']} 长度超过限制（{len(value_str)}/{max_len}字符）")
+    
+    return len(errors) == 0, errors
+
+
+def check_drug_uniqueness(row):
+    """
+    校验药品唯一性（药品名 + 批准文号 + 厂商简称）
+    返回: (是否唯一, 已存在的药品对象或None)
+    """
+    drug_name = get_row_value(row, 'drug_name')
+    approval_number = get_row_value(row, 'approval_number')
+    manufacturer_abb = get_row_value(row, 'Manufacturer_abb')
+    
+    # 如果缺少任一关键字段，跳过唯一性校验（让其他校验处理）
+    if not drug_name:
+        return True, None
+    
+    # 构建查询条件
+    query = Q(drug_name=drug_name)
+    
+    if approval_number:
+        query &= Q(approval_number=approval_number)
+    
+    if manufacturer_abb:
+        query &= Q(manufacturer__abbreviation=manufacturer_abb)
+    
+    # 查询是否已存在
+    existing = Drug.objects.filter(query).first()
+    
+    return existing is None, existing
 
 
 class OneChatFast:
@@ -283,7 +341,7 @@ class DrugsByType2View(APIView):
         drugs = type2_drug.drug_set.all()
 
         # 序列化药品数据
-        serializer = self.serializer_class(drugs, many=True)
+        serializer = self.serializer_class(drugs, many=True, context={"request": request})
         return Response(
             {"count": len(serializer.data), "results": serializer.data},
             status=status.HTTP_200_OK,
@@ -509,13 +567,11 @@ class BatchDeleteDrugs(APIView):
 
 def add_drugs_from_excel(request):
     """
-    上传 Excel 文件，批量添加药品记录
+    上传 Excel 文件，批量添加药品记录（不导入图片）
     
-    支持同时上传图片文件：
-    - Excel 中填写图片文件名（如：drug001.jpg）
-    - 同时上传对应的图片文件
+    图片请使用单独的上传功能：上传图片到药品
 
-    该接口提供了事务支持，确保数据的一致性。
+    优化方案：预创建分类数据，避免事务内的 get_or_create 竞争锁
     """
     if request.FILES.get("file"):
         file = request.FILES["file"]
@@ -528,186 +584,225 @@ def add_drugs_from_excel(request):
             )
 
         try:
-            # 收集所有上传的图片文件 {文件名: 文件对象}
-            image_files = {}
-            for key, uploaded_file in request.FILES.items():
-                if key != "file" and uploaded_file.name.lower().endswith(
-                    ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')
-                ):
-                    image_files[uploaded_file.name] = uploaded_file
-            
+            # 注意：不再处理图片文件，只导入药品数据
             data = file.read()
             excel_file = pd.ExcelFile(io.BytesIO(data))
-            userinfo_lst = []
-            created_drugs = []
-            image_success_count = 0
-            image_fail_list = []
+            
+            # ========== 第一遍：收集所有需要预创建的数据 ==========
+            type1_names = set()
+            type2_mapping = {}  # {type1_name: set(type2_names)}
+            holder_names = {}   # {name: abbreviation}
+            manufacturer_names = {}  # {name: abbreviation}
+            all_rows = []  # 存储所有有效行数据供第二遍使用
 
-            # 使用事务确保数据一致性
+            for sheet_name in excel_file.sheet_names:
+                # 跳过说明sheet
+                if sheet_name == "填写说明":
+                    continue
+                    
+                df = excel_file.parse(sheet_name).fillna("")
+
+                for i in range(1, len(df)):
+                    row = df.iloc[i]
+                    # 检查药品名称是否为空
+                    drug_name = get_row_value(row, 'drug_name')
+                    if not drug_name or not isinstance(drug_name, str):
+                        continue  # 跳过空行
+
+                    # 收集分类数据
+                    type1_name = get_row_value(row, 'Type1Drug_name')
+                    type2_name = get_row_value(row, 'Type2Drug_name')
+                    if type1_name:
+                        type1_names.add(type1_name)
+                        if type2_name:
+                            type2_mapping.setdefault(type1_name, set()).add(type2_name)
+
+                    # 收集持有人数据
+                    holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                    if holder_name:
+                        holder_names[holder_name] = get_row_value(row, 'ManufacturerHolder_abb')
+
+                    # 收集生产商数据
+                    manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                    if manufacturer_name:
+                        manufacturer_names[manufacturer_name] = get_row_value(row, 'Manufacturer_abb')
+
+                    # 保存行数据供后续使用
+                    all_rows.append({
+                        'row': row,
+                        'sheet_name': sheet_name,
+                        'row_index': i,
+                    })
+
+            # ========== 第二遍：批量预创建所有分类和关联数据 ==========
+            
+            # 1. 批量创建一级分类
             with transaction.atomic():
-                for sheet_name in excel_file.sheet_names:
-                    # 跳过说明sheet
-                    if sheet_name == "填写说明":
-                        continue
-                        
-                    df = excel_file.parse(sheet_name).fillna("")
+                if type1_names:
+                    Type1Drug.objects.bulk_create(
+                        [Type1Drug(name=name) for name in type1_names],
+                        ignore_conflicts=True
+                    )
+            
+            # 查询所有一级分类（包括已存在的和新创建的）
+            type1_objs = {t.name: t for t in Type1Drug.objects.filter(name__in=type1_names)}
 
-                    for i in range(1, len(df)):
-                        row = df.iloc[i]
-                        # 检查药品名称是否为空
-                        drug_name = get_row_value(row, 'drug_name')
-                        if not drug_name or not isinstance(drug_name, str):
-                            continue  # 跳过空行
+            # 2. 批量创建二级分类
+            with transaction.atomic():
+                type2_to_create = []
+                for t1_name, t2_names in type2_mapping.items():
+                    t1 = type1_objs.get(t1_name)
+                    if t1:
+                        for t2_name in t2_names:
+                            type2_to_create.append(Type2Drug(name=t2_name, type1_drug=t1))
+                
+                if type2_to_create:
+                    Type2Drug.objects.bulk_create(type2_to_create, ignore_conflicts=True)
+            
+            # 查询所有二级分类
+            type2_qs = Type2Drug.objects.filter(
+                type1_drug__name__in=type1_names
+            ).select_related('type1_drug')
+            type2_objs = {}
+            for t2 in type2_qs:
+                key = (t2.type1_drug.name, t2.name)
+                type2_objs[key] = t2
 
-                        # 获取图片文件名
-                        image_filename = get_row_value(row, 'drug_image_filename')
+            # 3. 批量创建上市许可持有人
+            with transaction.atomic():
+                if holder_names:
+                    ManufacturerHolder.objects.bulk_create(
+                        [
+                            ManufacturerHolder(name=name, abbreviation=abb)
+                            for name, abb in holder_names.items()
+                        ],
+                        ignore_conflicts=True
+                    )
+            
+            holder_objs = {h.name: h for h in ManufacturerHolder.objects.filter(name__in=holder_names.keys())}
 
-                        # 构建药品字典
-                        drug_data = {
-                            "drug_name": drug_name,
-                            "drug_name_en": get_row_value(row, 'drug_name_en'),
-                            "trade_name": get_row_value(row, 'trade_name'),
-                            "trade_name_en": get_row_value(row, 'trade_name_en'),
-                            "medical_insurance": get_row_value(row, 'medical_insurance'),
-                            "jd_url": get_row_value(row, 'jd_url'),
-                            "category": get_row_value(row, 'category'),
-                            "specification": get_row_value(row, 'specification'),
-                            "dosage_form": get_row_value(row, 'dosage_form'),
-                            "administration_route": get_row_value(row, 'administration_route'),
-                            "active_ingredient": get_row_value(row, 'active_ingredient'),
-                            "active_ingredient_en": get_row_value(row, 'active_ingredient_en'),
-                            "approval_number": get_row_value(row, 'approval_number'),
-                            "approval_date": get_row_value(row, 'approval_date'),
-                            "atc_code": get_row_value(row, 'atc_code'),
-                            "market_status": get_row_value(row, 'market_status'),
-                            "family_use": get_row_value(row, 'family_use'),
-                            "indications": get_row_value(row, 'indications'),
-                            "description": get_row_value(row, 'description'),
-                        }
+            # 4. 批量创建生产商
+            with transaction.atomic():
+                if manufacturer_names:
+                    Manufacturer.objects.bulk_create(
+                        [
+                            Manufacturer(name=name, abbreviation=abb)
+                            for name, abb in manufacturer_names.items()
+                        ],
+                        ignore_conflicts=True
+                    )
+            
+            manufacturer_objs = {m.name: m for m in Manufacturer.objects.filter(name__in=manufacturer_names.keys())}
 
-                        try:
+            # ========== 第三遍：逐个处理药品（每个药品独立事务） ==========
+            created_drugs = []
+            error_list = []
+            skipped_duplicates = []  # 记录因重复被跳过的药品
 
-                            # 处理药品分类
-                            type1_name = get_row_value(row, 'Type1Drug_name')
-                            type2_name = get_row_value(row, 'Type2Drug_name')
+            for row_data in all_rows:
+                row = row_data['row']
 
-                            # 获取或创建一级分类
-                            type1_obj = None
-                            if type1_name:
-                                type1_obj, _ = Type1Drug.objects.get_or_create(
-                                    name=type1_name
-                                )
+                # 数据校验
+                is_valid, validation_errors = validate_row_data(row)
+                if not is_valid:
+                    error_list.append({
+                        'drug_name': get_row_value(row, 'drug_name') or f'第{row_data["row_index"]+1}行',
+                        'error': '; '.join(validation_errors)
+                    })
+                    continue
 
-                            # 获取或创建二级分类（关联一级分类）
-                            if type2_name and type1_obj:
-                                type2_obj, _ = Type2Drug.objects.get_or_create(
-                                    name=type2_name, type1_drug=type1_obj
-                                )
+                # 唯一性校验（药品名 + 批准文号 + 厂商简称）
+                is_unique, existing_drug = check_drug_uniqueness(row)
+                if not is_unique:
+                    manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                    skipped_duplicates.append({
+                        'drug_name': get_row_value(row, 'drug_name'),
+                        'manufacturer': manufacturer_name or get_row_value(row, 'Manufacturer_abb') or '未知厂商',
+                        'approval_number': get_row_value(row, 'approval_number') or '',
+                        'reason': '数据库中已存在相同药品名+批准文号+厂商的药品'
+                    })
+                    continue
 
+                # 构建药品字典（不包含图片）
+                drug_data = {
+                    "drug_name": get_row_value(row, 'drug_name'),
+                    "drug_name_en": get_row_value(row, 'drug_name_en'),
+                    "trade_name": get_row_value(row, 'trade_name'),
+                    "trade_name_en": get_row_value(row, 'trade_name_en'),
+                    "medical_insurance": get_row_value(row, 'medical_insurance'),
+                    "jd_url": get_row_value(row, 'jd_url'),
+                    "category": get_row_value(row, 'category'),
+                    "specification": get_row_value(row, 'specification'),
+                    "dosage_form": get_row_value(row, 'dosage_form'),
+                    "administration_route": get_row_value(row, 'administration_route'),
+                    "active_ingredient": get_row_value(row, 'active_ingredient'),
+                    "active_ingredient_en": get_row_value(row, 'active_ingredient_en'),
+                    "approval_number": get_row_value(row, 'approval_number'),
+                    "approval_date": get_row_value(row, 'approval_date'),
+                    "atc_code": get_row_value(row, 'atc_code'),
+                    "market_status": get_row_value(row, 'market_status'),
+                    "family_use": get_row_value(row, 'family_use'),
+                    "indications": get_row_value(row, 'indications'),
+                    "description": get_row_value(row, 'description'),
+                }
+
+                try:
+                    with transaction.atomic():
+                        # 关联二级分类
+                        type1_name = get_row_value(row, 'Type1Drug_name')
+                        type2_name = get_row_value(row, 'Type2Drug_name')
+                        if type1_name and type2_name:
+                            type2_obj = type2_objs.get((type1_name, type2_name))
                             if type2_obj:
                                 drug_data["type2_drug"] = type2_obj
 
-                            # holder_name = row.get('ManufacturerHolder_name', '')
-                            # holder_obj = None
-                            # if holder_name:
-                            #     if ManufacturerHolder.objects.filter(name=holder_name).exists():
-                            #         holder_obj = ManufacturerHolder.objects.filter(name=holder_name).first()
-                            #     else:
-                            #         holder_obj = ManufacturerHolder.objects.create(
-                            #             name = holder_name,
-                            #             abbreviation = row.get('ManufacturerHolder_abb', '')
-                            #         )
-
-                            holder_name = get_row_value(row, 'ManufacturerHolder_name')
-                            if holder_name:
-                                holder_obj, _ = (
-                                    ManufacturerHolder.objects.get_or_create(
-                                        name=holder_name,
-                                        defaults={
-                                            "name": holder_name,
-                                            "abbreviation": get_row_value(row, 'ManufacturerHolder_abb'),
-                                        },
-                                    )
-                                )
-
+                        # 关联持有人
+                        holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                        if holder_name:
+                            holder_obj = holder_objs.get(holder_name)
                             if holder_obj:
                                 drug_data["manufacturer_holder"] = holder_obj
 
-                            manufacturer_name = get_row_value(row, 'Manufacturer_name')
-                            if manufacturer_name:
-                                manufacturer_obj, _ = (
-                                    Manufacturer.objects.get_or_create(
-                                        name=manufacturer_name,
-                                        defaults={
-                                            "name": manufacturer_name,
-                                            "abbreviation": get_row_value(row, 'Manufacturer_abb'),
-                                        },
-                                    )
-                                )
-
+                        # 关联生产商
+                        manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                        if manufacturer_name:
+                            manufacturer_obj = manufacturer_objs.get(manufacturer_name)
                             if manufacturer_obj:
                                 drug_data["manufacturer"] = manufacturer_obj
 
-                            # # 检查药品是否已存在
-                            # if Drug.objects.filter(
-                            #     drug_name=drug_data['drug_name'],
-                            #     approval_number=drug_data['approval_number']
-                            # ).exists():
-                            #     continue  # 跳过重复记录
+                        # 创建或更新药品（不包含图片）
+                        drug, created = Drug.objects.update_or_create(
+                            atc_code=drug_data["atc_code"],
+                            defaults=drug_data,
+                        )
 
-                            # 创建药品并关联分类、持有人和生产商
-                            drug, created = Drug.objects.update_or_create(
-                                atc_code=drug_data["atc_code"],  # 查找条件
-                                defaults=drug_data,  # 更新的字段
-                            )
+                        created_drugs.append(drug.id)
 
-                            # drug = Drug.objects.create(
-                            #     **drug_data,
-                            #     type2_drug=type2_obj,
-                            #     manufacturer_holder=holder_obj,
-                            #     manufacturer=manufacturer_obj
-                            # )
-
-                            # 处理图片上传
-                            if image_filename and image_filename in image_files:
-                                try:
-                                    from django.core.files.base import ContentFile
-                                    image_file = image_files[image_filename]
-                                    drug.drug_image.save(
-                                        f"{drug.id}_{image_file.name}",
-                                        ContentFile(image_file.read()),
-                                        save=True
-                                    )
-                                    image_success_count += 1
-                                except Exception as img_e:
-                                    logger.error(f"图片上传失败 {image_filename}: {str(img_e)}")
-                                    image_fail_list.append({
-                                        'drug_name': drug_name,
-                                        'filename': image_filename,
-                                        'error': str(img_e)
-                                    })
-
-                            created_drugs.append(drug.id)
-                            userinfo_lst.append(drug_data)
-                        except Exception as e:
-                            logger.error(f"处理过程中发生错误: {str(e)}")
-                            logger.error(traceback.format_exc())
+                except Exception as e:
+                    error_msg = f"处理药品 '{drug_data.get('drug_name')}' 失败: {str(e)}"
+                    logger.error(error_msg)
+                    logger.error(traceback.format_exc())
+                    error_list.append({
+                        'drug_name': drug_data.get('drug_name'),
+                        'error': str(e)
+                    })
 
             # 构建返回消息
             message = f"成功导入 {len(created_drugs)} 条药品记录"
-            if image_success_count > 0:
-                message += f"，其中 {image_success_count} 条包含图片"
-            if image_fail_list:
-                message += f"，{len(image_fail_list)} 张图片上传失败"
+            if skipped_duplicates:
+                message += f"，跳过 {len(skipped_duplicates)} 条重复药品"
+            if error_list:
+                message += f"，{len(error_list)} 条记录处理失败"
 
             return JsonResponse(
                 {
                     "success": True,
                     "created_count": len(created_drugs),
-                    "total_rows": len(userinfo_lst),
-                    "image_success_count": image_success_count,
-                    "image_fail_count": len(image_fail_list),
-                    "image_fail_list": image_fail_list,
+                    "skipped_count": len(skipped_duplicates),
+                    "skipped_duplicates": skipped_duplicates[:20] if skipped_duplicates else [],  # 最多返回20条
+                    "total_rows": len(all_rows),
+                    "error_count": len(error_list),
+                    "error_list": error_list[:10] if error_list else [],  # 只返回前10个错误
                     "message": message,
                 }
             )
@@ -880,6 +975,12 @@ def preview_import_excel(request):
                 if not row_data['drug_name']:
                     row_data['valid'] = False
                     row_data['errors'].append('药品名称为空')
+                
+                # 字段长度校验
+                _, validation_errors = validate_row_data(row)
+                if validation_errors:
+                    row_data['valid'] = False
+                    row_data['errors'].extend(validation_errors)
                 
                 # 检查药品是否已存在
                 if row_data['drug_name']:
@@ -1300,3 +1401,883 @@ class BatchDeleteManufacturerHolder(APIView):
             {"count": deleted_count, "message": f"成功删除{deleted_count}个上市许可持有人"},
             status=status.HTTP_200_OK
         )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def batch_import_drugs_simple(request):
+    """
+    轻量级批量导入药品（不处理图片，速度更快）
+    用于大批量数据导入，避免超时
+    """
+    if not request.FILES.get("file"):
+        return Response({"error": "未上传文件"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES["file"]
+    if not file.name.lower().endswith((".xls", ".xlsx")):
+        return Response({"error": "只支持Excel文件"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        import pandas as pd
+        from django.db import transaction
+        
+        # 读取Excel
+        df = pd.read_excel(file).fillna("")
+        
+        # 限制批次大小
+        MAX_BATCH = 100
+        if len(df) > MAX_BATCH:
+            df = df.head(MAX_BATCH)
+        
+        created_count = 0
+        skipped_count = 0
+        error_list = []
+        
+        # 预加载所有分类和厂商
+        type1_cache = {t.name: t for t in Type1Drug.objects.all()}
+        type2_cache = {}
+        for t2 in Type2Drug.objects.select_related('type1_drug').all():
+            type2_cache[(t2.type1_drug.name, t2.name)] = t2
+        
+        holder_cache = {h.name: h for h in ManufacturerHolder.objects.all()}
+        manufacturer_cache = {m.name: m for m in Manufacturer.objects.all()}
+        
+        for idx, row in df.iterrows():
+            try:
+                drug_name = get_row_value(row, 'drug_name')
+                if not drug_name:
+                    continue
+                
+                # 构建药品数据
+                drug_data = {
+                    "drug_name": drug_name,
+                    "drug_name_en": get_row_value(row, 'drug_name_en'),
+                    "trade_name": get_row_value(row, 'trade_name'),
+                    "trade_name_en": get_row_value(row, 'trade_name_en'),
+                    "medical_insurance": get_row_value(row, 'medical_insurance'),
+                    "jd_url": get_row_value(row, 'jd_url'),
+                    "category": get_row_value(row, 'category'),
+                    "specification": get_row_value(row, 'specification'),
+                    "dosage_form": get_row_value(row, 'dosage_form'),
+                    "administration_route": get_row_value(row, 'administration_route'),
+                    "active_ingredient": get_row_value(row, 'active_ingredient'),
+                    "active_ingredient_en": get_row_value(row, 'active_ingredient_en'),
+                    "approval_number": get_row_value(row, 'approval_number'),
+                    "approval_date": get_row_value(row, 'approval_date') or None,
+                    "atc_code": get_row_value(row, 'atc_code'),
+                    "market_status": get_row_value(row, 'market_status'),
+                    "family_use": get_row_value(row, 'family_use'),
+                    "indications": get_row_value(row, 'indications'),
+                    "description": get_row_value(row, 'description'),
+                }
+                
+                # 关联分类
+                type1_name = get_row_value(row, 'Type1Drug_name')
+                type2_name = get_row_value(row, 'Type2Drug_name')
+                if type1_name and type2_name:
+                    type2_obj = type2_cache.get((type1_name, type2_name))
+                    if type2_obj:
+                        drug_data["type2_drug"] = type2_obj
+                
+                # 关联持有人
+                holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                if holder_name:
+                    holder_obj = holder_cache.get(holder_name)
+                    if holder_obj:
+                        drug_data["manufacturer_holder"] = holder_obj
+                
+                # 关联生产商
+                manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                if manufacturer_name:
+                    manufacturer_obj = manufacturer_cache.get(manufacturer_name)
+                    if manufacturer_obj:
+                        drug_data["manufacturer"] = manufacturer_obj
+                
+                # 检查唯一性
+                is_unique, existing = check_drug_uniqueness(row)
+                if not is_unique:
+                    skipped_count += 1
+                    continue
+                
+                # 创建或更新
+                with transaction.atomic():
+                    Drug.objects.update_or_create(
+                        atc_code=drug_data.get("atc_code") or f"TEMP_{idx}",
+                        defaults=drug_data
+                    )
+                    created_count += 1
+                    
+            except Exception as e:
+                error_list.append({
+                    'row': idx + 1,
+                    'drug_name': drug_name if 'drug_name' in locals() else 'Unknown',
+                    'error': str(e)
+                })
+        
+        return Response({
+            "success": True,
+            "created_count": created_count,
+            "skipped_count": skipped_count,
+            "error_count": len(error_list),
+            "errors": error_list[:5],
+            "message": f"成功导入 {created_count} 条，跳过 {skipped_count} 条，失败 {len(error_list)} 条"
+        })
+        
+    except Exception as e:
+        return Response({
+            "error": f"处理失败: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def upload_drug_image(request, drug_id):
+    """
+    为指定药品上传图片
+    
+    POST /api/drugs/<drug_id>/upload_image/
+    
+    请求参数:
+        - image: 图片文件 (jpg, png, gif等)
+    """
+    try:
+        drug = Drug.objects.get(id=drug_id)
+    except Drug.DoesNotExist:
+        return Response(
+            {"error": "药品不存在"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if 'image' not in request.FILES:
+        return Response(
+            {"error": "请上传图片文件"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    image_file = request.FILES['image']
+    
+    # 检查文件类型
+    allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
+    if image_file.content_type not in allowed_types:
+        return Response(
+            {"error": f"不支持的文件类型: {image_file.content_type}，请上传图片文件"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # 检查文件大小（最大10MB）
+    max_size = 10 * 1024 * 1024  # 10MB
+    if image_file.size > max_size:
+        return Response(
+            {"error": f"文件过大: {image_file.size / 1024 / 1024:.2f}MB，最大允许10MB"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # 保存图片
+        from django.core.files.base import ContentFile
+        import os
+        
+        # 生成文件名: drug_id_原始文件名
+        ext = os.path.splitext(image_file.name)[1].lower()
+        new_filename = f"{drug.id}_{drug.drug_name}{ext}"
+        
+        # 保存到drug_image字段
+        drug.drug_image.save(
+            new_filename,
+            ContentFile(image_file.read()),
+            save=True
+        )
+        
+        # 返回完整URL
+        request = request
+        image_url = request.build_absolute_uri(drug.drug_image.url) if request else drug.drug_image.url
+        
+        return Response({
+            "success": True,
+            "message": "图片上传成功",
+            "drug_id": drug.id,
+            "drug_name": drug.drug_name,
+            "image_url": image_url,
+            "filename": new_filename
+        })
+        
+    except Exception as e:
+        logger.error(f"图片上传失败: {str(e)}")
+        return Response(
+            {"error": f"图片上传失败: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.AllowAny])
+def delete_drug_image(request, drug_id):
+    """
+    删除药品图片
+    
+    DELETE /api/drugs/<drug_id>/delete_image/
+    """
+    try:
+        drug = Drug.objects.get(id=drug_id)
+    except Drug.DoesNotExist:
+        return Response(
+            {"error": "药品不存在"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if not drug.drug_image:
+        return Response(
+            {"error": "该药品没有图片"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # 删除图片文件
+        drug.drug_image.delete()
+        drug.drug_image = None
+        drug.save()
+        
+        return Response({
+            "success": True,
+            "message": "图片删除成功",
+            "drug_id": drug.id,
+            "drug_name": drug.drug_name
+        })
+        
+    except Exception as e:
+        logger.error(f"图片删除失败: {str(e)}")
+        return Response(
+            {"error": f"图片删除失败: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# ==================== 后台线程导入接口 ====================
+
+def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicates: bool = True):
+    """
+    后台线程执行的导入任务处理函数
+    
+    Args:
+        task_id: 任务ID
+        excel_file: pandas ExcelFile 对象
+        file_name: 原始文件名
+        skip_duplicates: 是否跳过重复项
+    
+    Returns:
+        dict: 导入结果
+    """
+    logger.info(f"=== 开始导入任务 {task_id} ===")
+    try:
+        task_manager.update_progress(task_id, 5, "正在分析Excel文件...")
+        
+        # ========== 第一遍：收集所有需要预创建的数据 ==========
+        logger.info("开始第一遍扫描：收集数据...")
+        type1_names = set()
+        type2_mapping = {}  # {type1_name: set(type2_names)}
+        holder_names = {}   # {name: abbreviation}
+        manufacturer_names = {}  # {name: abbreviation}
+        all_rows = []  # 存储所有有效行数据供第二遍使用
+        total_rows = 0
+
+        for sheet_name in excel_file.sheet_names:
+            # 跳过说明sheet
+            if sheet_name == "填写说明":
+                continue
+                
+            df = excel_file.parse(sheet_name).fillna("")
+            total_rows += len(df) - 1  # 减去标题行
+            
+            for i in range(1, len(df)):
+                row = df.iloc[i]
+                # 检查药品名称是否为空
+                drug_name = get_row_value(row, 'drug_name')
+                if not drug_name or not isinstance(drug_name, str):
+                    continue  # 跳过空行
+
+                # 收集分类数据
+                type1_name = get_row_value(row, 'Type1Drug_name')
+                type2_name = get_row_value(row, 'Type2Drug_name')
+                if type1_name:
+                    type1_names.add(type1_name)
+                    if type2_name:
+                        type2_mapping.setdefault(type1_name, set()).add(type2_name)
+
+                # 收集持有人数据
+                holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                if holder_name:
+                    holder_names[holder_name] = get_row_value(row, 'ManufacturerHolder_abb')
+
+                # 收集生产商数据
+                manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                if manufacturer_name:
+                    manufacturer_names[manufacturer_name] = get_row_value(row, 'Manufacturer_abb')
+
+                # 保存行数据供后续使用
+                all_rows.append({
+                    'row': row,
+                    'sheet_name': sheet_name,
+                    'row_index': i,
+                })
+        
+        logger.info(f"第一遍扫描完成：共 {len(all_rows)} 条有效数据")
+        task_manager.update_progress(task_id, 15, f"解析完成，共 {len(all_rows)} 条有效数据，开始预创建关联数据...")
+
+        # ========== 第二遍：批量预创建所有分类和关联数据 ==========
+        logger.info("开始第二遍：预创建关联数据...")
+        
+        # 1. 批量创建一级分类
+        with transaction.atomic():
+            if type1_names:
+                logger.info(f"创建一级分类: {type1_names}")
+                Type1Drug.objects.bulk_create(
+                    [Type1Drug(name=name) for name in type1_names],
+                    ignore_conflicts=True
+                )
+        
+        # 查询所有一级分类
+        type1_objs = {t.name: t for t in Type1Drug.objects.filter(name__in=type1_names)}
+        logger.info(f"一级分类查询完成: {len(type1_objs)} 个")
+
+        # 2. 批量创建二级分类
+        with transaction.atomic():
+            type2_to_create = []
+            for t1_name, t2_names in type2_mapping.items():
+                t1 = type1_objs.get(t1_name)
+                if t1:
+                    for t2_name in t2_names:
+                        type2_to_create.append(Type2Drug(name=t2_name, type1_drug=t1))
+            
+            if type2_to_create:
+                logger.info(f"创建二级分类: {len(type2_to_create)} 个")
+                Type2Drug.objects.bulk_create(type2_to_create, ignore_conflicts=True)
+        
+        # 查询所有二级分类
+        type2_qs = Type2Drug.objects.filter(
+            type1_drug__name__in=type1_names
+        ).select_related('type1_drug')
+        type2_objs = {}
+        for t2 in type2_qs:
+            key = (t2.type1_drug.name, t2.name)
+            type2_objs[key] = t2
+        logger.info(f"二级分类查询完成: {len(type2_objs)} 个")
+
+        # 3. 批量创建上市许可持有人
+        with transaction.atomic():
+            if holder_names:
+                logger.info(f"创建持有人: {len(holder_names)} 个")
+                ManufacturerHolder.objects.bulk_create(
+                    [
+                        ManufacturerHolder(name=name, abbreviation=abb)
+                        for name, abb in holder_names.items()
+                    ],
+                    ignore_conflicts=True
+                )
+        
+        holder_objs = {h.name: h for h in ManufacturerHolder.objects.filter(name__in=holder_names.keys())}
+        logger.info(f"持有人查询完成: {len(holder_objs)} 个")
+
+        # 4. 批量创建生产商
+        with transaction.atomic():
+            if manufacturer_names:
+                logger.info(f"创建生产商: {len(manufacturer_names)} 个")
+                Manufacturer.objects.bulk_create(
+                    [
+                        Manufacturer(name=name, abbreviation=abb)
+                        for name, abb in manufacturer_names.items()
+                    ],
+                    ignore_conflicts=True
+                )
+        
+        manufacturer_objs = {m.name: m for m in Manufacturer.objects.filter(name__in=manufacturer_names.keys())}
+        logger.info(f"生产商查询完成: {len(manufacturer_objs)} 个")
+        
+        task_manager.update_progress(task_id, 25, "关联数据预创建完成，开始导入药品...")
+
+        # ========== 第三遍：逐个处理药品（每个药品独立事务） ==========
+        logger.info(f"开始第三遍：导入药品数据，共 {len(all_rows)} 条...")
+        created_drugs = []
+        error_list = []
+        skipped_duplicates = []
+        processed_count = 0
+        batch_size = max(1, len(all_rows) // 50)  # 每2%更新一次进度
+
+        for idx, row_data in enumerate(all_rows):
+            row = row_data['row']
+            processed_count += 1
+            
+            # 更新进度
+            if processed_count % batch_size == 0:
+                progress = 25 + int((processed_count / len(all_rows)) * 70)
+                task_manager.update_progress(
+                    task_id, 
+                    progress, 
+                    f"正在导入... ({processed_count}/{len(all_rows)})",
+                    {'processed': processed_count, 'total': len(all_rows)}
+                )
+
+            # 数据校验
+            is_valid, validation_errors = validate_row_data(row)
+            if not is_valid:
+                error_list.append({
+                    'drug_name': get_row_value(row, 'drug_name') or f'第{row_data["row_index"]+1}行',
+                    'error': '; '.join(validation_errors)
+                })
+                continue
+
+            # 唯一性校验
+            is_unique, existing_drug = check_drug_uniqueness(row)
+            if not is_unique:
+                manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                skipped_duplicates.append({
+                    'drug_name': get_row_value(row, 'drug_name'),
+                    'manufacturer': manufacturer_name or get_row_value(row, 'Manufacturer_abb') or '未知厂商',
+                    'approval_number': get_row_value(row, 'approval_number') or '',
+                    'reason': '数据库中已存在相同药品名+批准文号+厂商的药品'
+                })
+                continue
+
+            # 构建药品数据
+            drug_data = {
+                "drug_name": get_row_value(row, 'drug_name'),
+                "drug_name_en": get_row_value(row, 'drug_name_en'),
+                "trade_name": get_row_value(row, 'trade_name'),
+                "trade_name_en": get_row_value(row, 'trade_name_en'),
+                "medical_insurance": get_row_value(row, 'medical_insurance'),
+                "jd_url": get_row_value(row, 'jd_url'),
+                "category": get_row_value(row, 'category'),
+                "specification": get_row_value(row, 'specification'),
+                "dosage_form": get_row_value(row, 'dosage_form'),
+                "administration_route": get_row_value(row, 'administration_route'),
+                "active_ingredient": get_row_value(row, 'active_ingredient'),
+                "active_ingredient_en": get_row_value(row, 'active_ingredient_en'),
+                "approval_number": get_row_value(row, 'approval_number'),
+                "approval_date": get_row_value(row, 'approval_date'),
+                "atc_code": get_row_value(row, 'atc_code'),
+                "market_status": get_row_value(row, 'market_status'),
+                "family_use": get_row_value(row, 'family_use'),
+                "indications": get_row_value(row, 'indications'),
+                "description": get_row_value(row, 'description'),
+            }
+
+            try:
+                with transaction.atomic():
+                    # 关联二级分类
+                    type1_name = get_row_value(row, 'Type1Drug_name')
+                    type2_name = get_row_value(row, 'Type2Drug_name')
+                    if type1_name and type2_name:
+                        type2_obj = type2_objs.get((type1_name, type2_name))
+                        if type2_obj:
+                            drug_data["type2_drug"] = type2_obj
+
+                    # 关联持有人
+                    holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                    if holder_name:
+                        holder_obj = holder_objs.get(holder_name)
+                        if holder_obj:
+                            drug_data["manufacturer_holder"] = holder_obj
+
+                    # 关联生产商
+                    manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                    if manufacturer_name:
+                        manufacturer_obj = manufacturer_objs.get(manufacturer_name)
+                        if manufacturer_obj:
+                            drug_data["manufacturer"] = manufacturer_obj
+
+                    # 方案C：使用药品名+厂商+批准文号作为唯一键
+                    drug_name = drug_data['drug_name']
+                    approval_number = drug_data.get('approval_number', '')
+                    
+                    # 构建唯一性查询条件（药品名 + 厂商 + 批准文号）
+                    unique_query = Q(drug_name=drug_name)
+                    if manufacturer_name:
+                        unique_query &= Q(manufacturer__name=manufacturer_name)
+                    if approval_number:
+                        unique_query &= Q(approval_number=approval_number)
+                    
+                    # 查找是否已存在
+                    existing_drug = Drug.objects.filter(unique_query).first()
+                    
+                    if existing_drug:
+                        # 更新现有记录
+                        for key, value in drug_data.items():
+                            if key not in ['type2_drug', 'manufacturer_holder', 'manufacturer'] and value:
+                                setattr(existing_drug, key, value)
+                        # 单独处理外键关系
+                        if 'type2_drug' in drug_data:
+                            existing_drug.type2_drug = drug_data['type2_drug']
+                        if 'manufacturer_holder' in drug_data:
+                            existing_drug.manufacturer_holder = drug_data['manufacturer_holder']
+                        if 'manufacturer' in drug_data:
+                            existing_drug.manufacturer = drug_data['manufacturer']
+                        existing_drug.save()
+                        created_drugs.append(existing_drug.id)
+                        logger.info(f"更新药品: {drug_name} (ID: {existing_drug.id})")
+                    else:
+                        # 创建新记录
+                        drug = Drug.objects.create(**drug_data)
+                        created_drugs.append(drug.id)
+                        logger.info(f"创建药品: {drug_name} (ID: {drug.id})")
+
+            except Exception as e:
+                error_msg = f"处理药品 '{drug_data.get('drug_name')}' 失败: {str(e)}"
+                logger.error(error_msg)
+                logger.error(traceback.format_exc())
+                error_list.append({
+                    'drug_name': drug_data.get('drug_name'),
+                    'error': str(e)
+                })
+
+        # 构建返回结果
+        result = {
+            "success": True,
+            "created_count": len(created_drugs),
+            "skipped_count": len(skipped_duplicates),
+            "skipped_duplicates": skipped_duplicates[:20] if skipped_duplicates else [],
+            "total_rows": len(all_rows),
+            "error_count": len(error_list),
+            "error_list": error_list[:10] if error_list else [],
+            "message": f"成功导入 {len(created_drugs)} 条药品记录，跳过 {len(skipped_duplicates)} 条重复，失败 {len(error_list)} 条",
+        }
+        
+        logger.info(f"=== 导入任务 {task_id} 完成 ===")
+        logger.info(f"结果: 成功创建 {len(created_drugs)} 条，跳过 {len(skipped_duplicates)} 条，失败 {len(error_list)} 条")
+        if error_list:
+            logger.warning(f"错误列表: {error_list[:5]}")
+        
+        task_manager.update_progress(task_id, 100, "导入完成", result)
+        return result
+
+    except Exception as e:
+        logger.error(f"导入任务异常: {task_id}, {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def async_import_drugs(request):
+    """
+    异步导入药品接口（后台线程处理）
+    
+    请求参数:
+        - file: Excel文件
+        - skip_duplicates: 是否跳过重复项（可选，默认true）
+    
+    返回:
+        - task_id: 任务ID，用于查询任务状态
+        - status: 任务状态
+        - message: 状态消息
+    
+    使用流程:
+        1. 调用此接口提交导入任务，立即返回任务ID
+        2. 使用返回的 task_id 调用 /api/import_task_status/<task_id>/ 查询进度
+        3. 轮询查询直到任务完成或失败
+    """
+    if not request.FILES.get("file"):
+        return Response({"error": "未上传文件"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES["file"]
+    
+    # 检查文件类型
+    if not file.name.lower().endswith((".xls", ".xlsx", ".xlsm", ".xlsb", ".odf", ".ods")):
+        return Response(
+            {"error": "文件类型错误，只允许上传 Excel 文件"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # 读取文件数据（必须在主线程读取，因为 request.FILES 不能在后台线程访问）
+        file_data = file.read()
+        file_name = file.name
+        skip_duplicates = request.POST.get('skip_duplicates', 'true').lower() == 'true'
+        
+        # 创建任务
+        task_id = task_manager.create_task(task_type='import')
+        
+        # 启动后台线程处理导入
+        run_import_in_thread(task_id, _process_import_task, file_data, file_name, skip_duplicates)
+        
+        return Response({
+            "success": True,
+            "task_id": task_id,
+            "status": "pending",
+            "message": "导入任务已提交，正在后台处理",
+            "check_status_url": f"/api/import_task_status/{task_id}/"
+        }, status=status.HTTP_202_ACCEPTED)
+        
+    except Exception as e:
+        logger.error(f"创建导入任务失败: {str(e)}")
+        logger.error(traceback.format_exc())
+        return Response({
+            "error": f"创建导入任务失败: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_import_task_status(request, task_id):
+    """
+    查询导入任务状态
+    
+    返回任务执行进度、状态和结果
+    """
+    task_status = task_manager.get_task_status(task_id)
+    
+    if not task_status:
+        return Response({
+            "error": "任务不存在或已过期"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response({
+        "success": True,
+        "task": task_status
+    })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_import_tasks(request):
+    """
+    获取导入任务列表（最近50个）
+    """
+    limit = int(request.query_params.get('limit', 50))
+    tasks = task_manager.get_all_tasks(limit=limit)
+    
+    return Response({
+        "success": True,
+        "count": len(tasks),
+        "tasks": [
+            {
+                'id': t['id'],
+                'type': t['type'],
+                'status': t['status'],
+                'progress': t['progress'],
+                'message': t['message'],
+                'created_at': datetime.fromtimestamp(t['created_at']).isoformat(),
+            }
+            for t in tasks
+        ]
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def cancel_import_task(request, task_id):
+    """
+    取消导入任务
+    
+    只能取消 pending 或 running 状态的任务
+    """
+    success = task_manager.cancel_task(task_id)
+    
+    if success:
+        return Response({
+            "success": True,
+            "message": "任务已取消"
+        })
+    else:
+        return Response({
+            "error": "任务不存在或已完成，无法取消"
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def async_batch_import_simple(request):
+    """
+    轻量级批量导入药品（后台线程处理）
+    用于大批量数据导入，避免超时
+    """
+    if not request.FILES.get("file"):
+        return Response({"error": "未上传文件"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    file = request.FILES["file"]
+    
+    if not file.name.lower().endswith((".xls", ".xlsx")):
+        return Response({"error": "只支持Excel文件"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        import pandas as pd
+        
+        # 读取文件数据
+        file_data = file.read()
+        file_name = file.name
+        
+        # 创建任务
+        task_id = task_manager.create_task(task_type='import_simple')
+        
+        # 启动后台线程
+        def process_simple_import(task_id: str, file_data: bytes, file_name: str):
+            import io
+            from django import db
+            
+            try:
+                # 关键：关闭旧的数据库连接，确保后台线程使用自己的连接
+                db.connections.close_all()
+                
+                task_manager.start_task(task_id)
+                
+                # 重建 DataFrame
+                df = pd.read_excel(io.BytesIO(file_data)).fillna("")
+                
+                # 限制批次大小
+                MAX_BATCH = 1000
+                if len(df) > MAX_BATCH:
+                    df = df.head(MAX_BATCH)
+                
+                task_manager.update_progress(task_id, 10, "正在预加载数据...")
+                
+                # 预加载所有分类和厂商
+                type1_cache = {t.name: t for t in Type1Drug.objects.all()}
+                type2_cache = {}
+                for t2 in Type2Drug.objects.select_related('type1_drug').all():
+                    type2_cache[(t2.type1_drug.name, t2.name)] = t2
+                
+                holder_cache = {h.name: h for h in ManufacturerHolder.objects.all()}
+                manufacturer_cache = {m.name: m for m in Manufacturer.objects.all()}
+                
+                created_count = 0
+                skipped_count = 0
+                error_list = []
+                
+                batch_size = max(1, len(df) // 10)
+                
+                for idx, row in df.iterrows():
+                    try:
+                        drug_name = get_row_value(row, 'drug_name')
+                        if not drug_name:
+                            continue
+                        
+                        # 构建药品数据
+                        drug_data = {
+                            "drug_name": drug_name,
+                            "drug_name_en": get_row_value(row, 'drug_name_en'),
+                            "trade_name": get_row_value(row, 'trade_name'),
+                            "trade_name_en": get_row_value(row, 'trade_name_en'),
+                            "medical_insurance": get_row_value(row, 'medical_insurance'),
+                            "jd_url": get_row_value(row, 'jd_url'),
+                            "category": get_row_value(row, 'category'),
+                            "specification": get_row_value(row, 'specification'),
+                            "dosage_form": get_row_value(row, 'dosage_form'),
+                            "administration_route": get_row_value(row, 'administration_route'),
+                            "active_ingredient": get_row_value(row, 'active_ingredient'),
+                            "active_ingredient_en": get_row_value(row, 'active_ingredient_en'),
+                            "approval_number": get_row_value(row, 'approval_number'),
+                            "approval_date": get_row_value(row, 'approval_date') or None,
+                            "atc_code": get_row_value(row, 'atc_code'),
+                            "market_status": get_row_value(row, 'market_status'),
+                            "family_use": get_row_value(row, 'family_use'),
+                            "indications": get_row_value(row, 'indications'),
+                            "description": get_row_value(row, 'description'),
+                        }
+                        
+                        # 关联分类
+                        type1_name = get_row_value(row, 'Type1Drug_name')
+                        type2_name = get_row_value(row, 'Type2Drug_name')
+                        if type1_name and type2_name:
+                            type2_obj = type2_cache.get((type1_name, type2_name))
+                            if type2_obj:
+                                drug_data["type2_drug"] = type2_obj
+                        
+                        # 关联持有人
+                        holder_name = get_row_value(row, 'ManufacturerHolder_name')
+                        if holder_name:
+                            holder_obj = holder_cache.get(holder_name)
+                            if holder_obj:
+                                drug_data["manufacturer_holder"] = holder_obj
+                        
+                        # 关联生产商
+                        manufacturer_name = get_row_value(row, 'Manufacturer_name')
+                        if manufacturer_name:
+                            manufacturer_obj = manufacturer_cache.get(manufacturer_name)
+                            if manufacturer_obj:
+                                drug_data["manufacturer"] = manufacturer_obj
+                        
+                        # 方案C：使用药品名+厂商+批准文号作为唯一键
+                        approval_number = drug_data.get('approval_number', '')
+                        
+                        # 构建唯一性查询条件
+                        unique_query = Q(drug_name=drug_name)
+                        if manufacturer_name:
+                            unique_query &= Q(manufacturer__name=manufacturer_name)
+                        if approval_number:
+                            unique_query &= Q(approval_number=approval_number)
+                        
+                        # 查找是否已存在
+                        existing_drug = Drug.objects.filter(unique_query).first()
+                        
+                        if existing_drug:
+                            # 更新现有记录
+                            for key, value in drug_data.items():
+                                if key not in ['type2_drug', 'manufacturer_holder', 'manufacturer'] and value:
+                                    setattr(existing_drug, key, value)
+                            if 'type2_drug' in drug_data:
+                                existing_drug.type2_drug = drug_data['type2_drug']
+                            if 'manufacturer_holder' in drug_data:
+                                existing_drug.manufacturer_holder = drug_data['manufacturer_holder']
+                            if 'manufacturer' in drug_data:
+                                existing_drug.manufacturer = drug_data['manufacturer']
+                            existing_drug.save()
+                            created_count += 1
+                        else:
+                            # 创建新记录
+                            Drug.objects.create(**drug_data)
+                            created_count += 1
+                        
+                        # 更新进度
+                        if (idx + 1) % batch_size == 0:
+                            progress = 10 + int((idx + 1) / len(df) * 85)
+                            task_manager.update_progress(
+                                task_id, 
+                                progress, 
+                                f"正在导入... ({idx + 1}/{len(df)})"
+                            )
+                            
+                    except Exception as e:
+                        error_list.append({
+                            'row': idx + 1,
+                            'drug_name': drug_name if 'drug_name' in locals() else 'Unknown',
+                            'error': str(e)
+                        })
+                
+                result = {
+                    "success": True,
+                    "created_count": created_count,
+                    "skipped_count": skipped_count,
+                    "error_count": len(error_list),
+                    "errors": error_list[:5],
+                    "message": f"成功导入 {created_count} 条，跳过 {skipped_count} 条，失败 {len(error_list)} 条"
+                }
+                
+                task_manager.complete_task(task_id, result)
+                
+            except Exception as e:
+                logger.error(f"简单导入任务异常: {task_id}, {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                task_manager.fail_task(task_id, str(e))
+            finally:
+                # 任务完成后关闭数据库连接
+                db.connections.close_all()
+        
+        # 启动线程
+        thread = threading.Thread(
+            target=process_simple_import, 
+            args=(task_id, file_data, file_name),
+            daemon=True
+        )
+        thread.start()
+        
+        return Response({
+            "success": True,
+            "task_id": task_id,
+            "status": "pending",
+            "message": "批量导入任务已提交，正在后台处理",
+            "check_status_url": f"/api/import_task_status/{task_id}/"
+        }, status=status.HTTP_202_ACCEPTED)
+        
+    except Exception as e:
+        return Response({
+            "error": f"创建导入任务失败: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

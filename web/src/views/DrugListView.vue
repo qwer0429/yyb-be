@@ -68,19 +68,27 @@
         <!-- 热门标记 -->
         <div v-if="drug.is_hot" class="hot-badge">热</div>
         
-        <!-- 药品图片 -->
-        <div class="drug-image-wrapper">
+        <!-- 药品图片（仅展示） -->
+        <div class="drug-image-wrapper" @click.stop>
           <el-image
             :src="drug.drug_image || '/default-drug.png'"
             fit="cover"
             class="drug-image"
+            :preview-src-list="drug.drug_image ? [drug.drug_image] : []"
+            preview-teleported
           >
             <template #error>
               <div class="image-placeholder">
                 <el-icon :size="40"><FirstAidKit /></el-icon>
+                <span class="upload-hint">暂无图片</span>
               </div>
             </template>
           </el-image>
+          <!-- 悬浮提示 -->
+          <div v-if="drug.drug_image" class="image-upload-overlay">
+            <el-icon :size="24"><View /></el-icon>
+            <span>查看大图</span>
+          </div>
         </div>
         
         <!-- 药品信息 -->
@@ -148,8 +156,9 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑药品' : '新增药品'"
-      width="700px"
+      width="750px"
       destroy-on-close
+      @closed="onDialogClosed"
     >
       <el-form
         ref="formRef"
@@ -158,6 +167,44 @@
         label-width="100px"
         class="drug-form"
       >
+        <!-- 图片上传区域（编辑时显示） -->
+        <el-form-item v-if="isEdit" label="药品图片">
+          <div class="edit-image-section">
+            <div class="edit-image-preview" @click="selectEditImage">
+              <el-image
+                :src="editImagePreview || drugForm.drug_image || '/default-drug.png'"
+                fit="cover"
+                style="width: 120px; height: 120px; border-radius: 8px;"
+              >
+                <template #error>
+                  <div class="image-placeholder-large">
+                    <el-icon :size="32"><Camera /></el-icon>
+                    <span>点击上传</span>
+                  </div>
+                </template>
+              </el-image>
+              <div class="edit-image-overlay">
+                <el-icon :size="20"><Camera /></el-icon>
+                <span>{{ drugForm.drug_image || editImagePreview ? '更换' : '上传' }}</span>
+              </div>
+            </div>
+            <div class="edit-image-info">
+              <p class="image-tip">支持 jpg、png、gif、webp 格式</p>
+              <p class="image-tip">建议图片大小不超过 10MB</p>
+              <el-button v-if="editImageFile" type="info" size="small" @click="clearEditImage">
+                <el-icon><Close /></el-icon>清除选择
+              </el-button>
+            </div>
+          </div>
+          <input
+            ref="editImageInput"
+            type="file"
+            style="display: none"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            @change="onEditImageChange"
+          />
+        </el-form-item>
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="通用名" prop="drug_name">
@@ -240,15 +287,18 @@
     >
       <div v-if="currentDrug" class="drug-detail">
         <div class="detail-header">
-          <div class="detail-image">
+          <div class="detail-image" style="position: relative;">
             <el-image
               :src="currentDrug.drug_image || '/default-drug.png'"
               fit="cover"
               style="width: 120px; height: 120px; border-radius: 8px"
+              :preview-src-list="currentDrug.drug_image ? [currentDrug.drug_image] : []"
+              preview-teleported
             >
               <template #error>
                 <div class="image-placeholder-large">
                   <el-icon :size="48"><FirstAidKit /></el-icon>
+                  <span style="font-size: 12px; color: #909399; margin-top: 8px;">暂无图片</span>
                 </div>
               </template>
             </el-image>
@@ -346,30 +396,14 @@
           </div>
         </el-upload>
         
-        <el-divider>图片上传（可选）</el-divider>
-        
-        <div class="image-upload-section">
-          <p class="upload-tip">
-            如果 Excel 中包含图片文件名，请同时上传对应的图片文件<br>
-            <small>支持 jpg、png、gif 格式，文件名需与 Excel 中填写的一致</small>
-          </p>
-          <el-upload
-            class="upload-area image-upload"
-            drag
-            action="#"
-            :auto-upload="false"
-            :on-change="handleImageChange"
-            :on-remove="handleImageRemove"
-            :file-list="imageFiles"
-            accept=".jpg,.jpeg,.png,.gif,.bmp,.webp"
-            multiple
-          >
-            <el-icon class="el-icon--upload"><Picture /></el-icon>
-            <div class="el-upload__text">
-              拖拽图片到此处或 <em>点击上传</em>
-            </div>
-          </el-upload>
-        </div>
+        <el-alert
+          title="提示"
+          description="导入时只需上传Excel文件，药品图片可在导入后通过点击药品卡片单独上传"
+          type="info"
+          show-icon
+          :closable="false"
+          style="margin-top: 20px"
+        />
       </div>
       
       <div v-if="importStep === 2" class="import-step-content">
@@ -384,11 +418,47 @@
       </div>
       
       <div v-if="importStep === 3" class="import-step-content">
+        <!-- 导入中状态 -->
+        <div v-if="importTaskStatus === 'pending' || importTaskStatus === 'running'" class="import-progress">
+          <el-progress 
+            :percentage="importProgress" 
+            :status="importProgress === 100 ? 'success' : ''"
+            :stroke-width="20"
+            striped
+            striped-flow
+          />
+          <p class="progress-message">{{ importProgressMessage }}</p>
+          <p v-if="importProgressDetail.processed" class="progress-detail">
+            已处理: {{ importProgressDetail.processed }} / {{ importProgressDetail.total }}
+          </p>
+        </div>
+        
+        <!-- 导入完成/失败 -->
         <el-result
+          v-else
           :icon="importResults.success ? 'success' : 'error'"
           :title="importResults.success ? '导入成功' : '导入失败'"
           :sub-title="importResults.message"
-        />
+        >
+          <template #extra>
+            <div v-if="importResults.detail" class="import-result-detail">
+              <p>总数据行数: {{ importResults.detail.total_rows || 0 }}</p>
+              <p>成功创建: {{ importResults.detail.created_count || 0 }}</p>
+              <p>跳过重复: {{ importResults.detail.skipped_count || 0 }}</p>
+              <p>失败: {{ importResults.detail.error_count || 0 }}</p>
+            </div>
+            <div v-if="importResults.detail?.error_list?.length" class="import-errors">
+              <el-alert
+                v-for="(err, idx) in importResults.detail.error_list"
+                :key="idx"
+                :title="err.drug_name + ': ' + err.error"
+                type="error"
+                :closable="false"
+                show-icon
+              />
+            </div>
+          </template>
+        </el-result>
       </div>
       
       <template #footer>
@@ -397,7 +467,8 @@
           <el-button v-if="importStep === 1" @click="importDialogVisible = false">取消</el-button>
           <el-button v-if="importStep === 1" type="primary" :disabled="!uploadFile" @click="previewImport">下一步</el-button>
           <el-button v-if="importStep === 2" type="primary" :loading="importing" @click="confirmImport">确认导入</el-button>
-          <el-button v-if="importStep === 3" type="primary" @click="importDialogVisible = false">完成</el-button>
+          <el-button v-if="importStep === 3 && importTaskStatus !== 'pending' && importTaskStatus !== 'running'" type="primary" @click="importDialogVisible = false">完成</el-button>
+          <el-button v-if="importStep === 3 && (importTaskStatus === 'pending' || importTaskStatus === 'running')" type="danger" @click="cancelImport">取消导入</el-button>
         </div>
       </template>
     </el-dialog>
@@ -405,13 +476,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import { 
   Search, Plus, Upload, Delete, Edit, View, FirstAidKit, 
-  Box, Download, Document, Check, InfoFilled, Picture
+  Box, Download, Document, Check, InfoFilled, Picture, Camera, Close
 } from '@element-plus/icons-vue';
 
 // 搜索表单
@@ -449,8 +520,13 @@ const drugForm = reactive({
   manufacturer: null as number | null,
   approval_number: '',
   description: '',
-  indications: ''
+  indications: '',
+  drug_image: ''
 });
+
+// 编辑表单中的图片文件
+const editImageFile = ref<File | null>(null);
+const editImagePreview = ref('');
 
 const drugRules: FormRules = {
   drug_name: [{ required: true, message: '请输入通用名', trigger: 'blur' }],
@@ -471,6 +547,15 @@ const previewData = ref<any[]>([]);
 const importResults = ref({ success: false, message: '' });
 const importing = ref(false);
 
+// 异步导入任务相关
+const importTaskId = ref('');
+const importTaskStatus = ref('');
+const importProgress = ref(0);
+const importProgressMessage = ref('');
+const importProgressDetail = ref<any>({});
+const importStatusTimer = ref<any>(null);
+const IMPORT_STATUS_INTERVAL = 1000; // 轮询间隔1秒
+
 // 全部药品数据（前端分页用）
 const allDrugs = ref<any[]>([]);
 
@@ -485,7 +570,27 @@ const fetchDrugs = async () => {
       }
     });
     // 后端不分页时直接返回数组，分页时返回 {results, count}
-    allDrugs.value = Array.isArray(response.data) ? response.data : (response.data.results || []);
+    let drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+    
+    // 排序：有图片的排在前面
+    drugsList.sort((a: any, b: any) => {
+      const aHasImage = a.drug_image ? 1 : 0;
+      const bHasImage = b.drug_image ? 1 : 0;
+      // 先按是否有图片排序（有图片的在前）
+      if (aHasImage !== bHasImage) {
+        return bHasImage - aHasImage;
+      }
+      // 都有图片或都没有图片时，按热门状态排序
+      const aIsHot = a.is_hot ? 1 : 0;
+      const bIsHot = b.is_hot ? 1 : 0;
+      if (aIsHot !== bIsHot) {
+        return bIsHot - aIsHot;
+      }
+      // 最后按ID倒序
+      return b.id - a.id;
+    });
+    
+    allDrugs.value = drugsList;
     total.value = allDrugs.value.length;
     updatePagedDrugs();
   } catch (error) {
@@ -540,7 +645,24 @@ const searchDrugs = async () => {
       text: searchForm.keyword
     });
     // 存储全部搜索结果，前端分页显示
-    allDrugs.value = response.data.results || [];
+    let drugsList = response.data.results || [];
+    
+    // 排序：有图片的排在前面
+    drugsList.sort((a: any, b: any) => {
+      const aHasImage = a.drug_image ? 1 : 0;
+      const bHasImage = b.drug_image ? 1 : 0;
+      if (aHasImage !== bHasImage) {
+        return bHasImage - aHasImage;
+      }
+      const aIsHot = a.is_hot ? 1 : 0;
+      const bIsHot = b.is_hot ? 1 : 0;
+      if (aIsHot !== bIsHot) {
+        return bIsHot - aIsHot;
+      }
+      return b.id - a.id;
+    });
+    
+    allDrugs.value = drugsList;
     total.value = allDrugs.value.length;
     currentPage.value = 1;  // 搜索后重置到第一页
     updatePagedDrugs();
@@ -631,7 +753,66 @@ const handleAdd = () => {
 const handleEdit = (row: any) => {
   isEdit.value = true;
   Object.assign(drugForm, row);
+  // 重置图片编辑状态
+  editImageFile.value = null;
+  editImagePreview.value = '';
   dialogVisible.value = true;
+};
+
+// 图片上传输入框引用
+const editImageInput = ref<HTMLInputElement | null>(null);
+
+// 点击图片选择区域
+const selectEditImage = () => {
+  editImageInput.value?.click();
+};
+
+// 图片文件选择变化
+const onEditImageChange = (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  
+  // 检查文件类型
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('请上传图片文件 (jpg, png, gif, webp)');
+    return;
+  }
+  
+  // 检查文件大小（最大10MB）
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    ElMessage.error('文件过大，最大支持10MB');
+    return;
+  }
+  
+  editImageFile.value = file;
+  
+  // 生成预览URL
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    editImagePreview.value = e.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+};
+
+// 清除选择的图片
+const clearEditImage = () => {
+  editImageFile.value = null;
+  editImagePreview.value = '';
+  if (editImageInput.value) {
+    editImageInput.value.value = '';
+  }
+};
+
+// 对话框关闭时清理
+const onDialogClosed = () => {
+  editImageFile.value = null;
+  editImagePreview.value = '';
+  if (editImageInput.value) {
+    editImageInput.value.value = '';
+  }
 };
 
 // 查看详情
@@ -699,11 +880,35 @@ const handleSubmit = async () => {
     if (valid) {
       submitting.value = true;
       try {
+        // 如果有新图片，先上传图片
+        if (isEdit.value && drugForm.id && editImageFile.value) {
+          const imageFormData = new FormData();
+          imageFormData.append('image', editImageFile.value);
+          
+          try {
+            const imageResponse = await api.post(`/syyb/drugs/${drugForm.id}/upload_image/`, imageFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            if (imageResponse.data.success) {
+              drugForm.drug_image = imageResponse.data.image_url;
+              ElMessage.success('图片上传成功');
+            }
+          } catch (imageError: any) {
+            ElMessage.error(imageError.response?.data?.error || '图片上传失败');
+            // 图片上传失败继续保存其他信息
+          }
+        }
+        
+        // 提交表单数据（不包含图片文件）
+        const submitData = { ...drugForm };
+        delete (submitData as any).drug_image; // 图片已经单独上传，不需要在表单中提交
+        
         if (isEdit.value && drugForm.id) {
-          await api.put(`/syyb/drug/${drugForm.id}/`, drugForm);
+          await api.put(`/syyb/drug/${drugForm.id}/`, submitData);
           ElMessage.success('更新成功');
         } else {
-          await api.post('/syyb/drug/', drugForm);
+          await api.post('/syyb/drug/', submitData);
           ElMessage.success('添加成功');
         }
         dialogVisible.value = false;
@@ -724,6 +929,11 @@ const handleImport = () => {
   imageFiles.value = [];
   previewData.value = [];
   importResults.value = { success: false, message: '' };
+  importTaskId.value = '';
+  importTaskStatus.value = '';
+  importProgress.value = 0;
+  importProgressMessage.value = '';
+  importProgressDetail.value = {};
   importDialogVisible.value = true;
 };
 
@@ -805,7 +1015,7 @@ const previewImport = async () => {
   }
 };
 
-// 确认导入
+// 确认导入（使用异步接口，支持后台线程处理）
 const confirmImport = async () => {
   if (!uploadFile.value) {
     ElMessage.warning('文件已丢失，请重新选择');
@@ -815,32 +1025,190 @@ const confirmImport = async () => {
   importing.value = true;
   const formData = new FormData();
   formData.append('file', uploadFile.value);
-  
-  // 添加图片文件
-  imageFiles.value.forEach((imgFile) => {
-    formData.append(imgFile.name, imgFile);
-  });
+  formData.append('skip_duplicates', 'true');
   
   try {
-    const response = await api.post('/syyb/add_drugs_from_excel/', formData, {
+    // 提交异步导入任务
+    const response = await api.post('/syyb/async_import_drugs/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     
     if (response.data.success) {
-      importResults.value = {
-        success: true,
-        message: response.data.message
-      };
+      importTaskId.value = response.data.task_id;
       importStep.value = 3;
-      fetchDrugs();
+      importTaskStatus.value = 'pending';
+      importProgress.value = 0;
+      importProgressMessage.value = '任务已提交，正在初始化...';
+      
+      ElMessage.success('导入任务已提交，正在后台处理');
+      
+      // 开始轮询任务状态
+      startImportStatusPolling();
     }
   } catch (error: any) {
     importResults.value = {
       success: false,
-      message: error.response?.data?.error || '导入失败'
+      message: error.response?.data?.error || '提交导入任务失败'
     };
+    importStep.value = 3;
+    importTaskStatus.value = 'failed';
   } finally {
     importing.value = false;
+  }
+};
+
+// 开始轮询导入任务状态
+const startImportStatusPolling = () => {
+  // 清除可能存在的旧定时器
+  if (importStatusTimer.value) {
+    clearInterval(importStatusTimer.value);
+  }
+  
+  // 立即查询一次
+  checkImportStatus();
+  
+  // 设置轮询
+  importStatusTimer.value = setInterval(() => {
+    checkImportStatus();
+  }, IMPORT_STATUS_INTERVAL);
+};
+
+// 查询导入任务状态
+const checkImportStatus = async () => {
+  if (!importTaskId.value) return;
+  
+  try {
+    const response = await api.get(`/syyb/import_task_status/${importTaskId.value}/`);
+    
+    if (response.data.success) {
+      const task = response.data.task;
+      importTaskStatus.value = task.status;
+      importProgress.value = task.progress;
+      importProgressMessage.value = task.message;
+      importProgressDetail.value = task.detail || {};
+      
+      // 任务完成或失败，停止轮询
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
+        stopImportStatusPolling();
+        
+        if (task.status === 'completed') {
+          importResults.value = {
+            success: true,
+            message: task.result?.message || `导入完成！成功导入 ${task.result?.created_count || 0} 条数据`,
+            detail: task.result
+          };
+          // 刷新药品列表
+          fetchDrugs();
+        } else if (task.status === 'failed') {
+          importResults.value = {
+            success: false,
+            message: task.error || '导入失败'
+          };
+        } else if (task.status === 'cancelled') {
+          importResults.value = {
+            success: false,
+            message: '导入已取消'
+          };
+        }
+      }
+    }
+  } catch (error) {
+    console.error('查询导入状态失败:', error);
+    // 出错时继续轮询，直到达到最大重试次数
+  }
+};
+
+// 停止轮询
+const stopImportStatusPolling = () => {
+  if (importStatusTimer.value) {
+    clearInterval(importStatusTimer.value);
+    importStatusTimer.value = null;
+  }
+};
+
+// 取消导入
+const cancelImport = async () => {
+  if (!importTaskId.value) return;
+  
+  try {
+    await api.post(`/syyb/import_tasks/${importTaskId.value}/cancel/`);
+    ElMessage.success('已发送取消请求');
+    
+    // 更新本地状态
+    importTaskStatus.value = 'cancelled';
+    stopImportStatusPolling();
+    importResults.value = {
+      success: false,
+      message: '导入已取消'
+    };
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.error || '取消失败');
+  }
+};
+
+// 上传药品图片
+const handleUploadImage = (drug: any) => {
+  // 创建文件输入元素
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+  input.onchange = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // 检查文件类型
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      ElMessage.error('请上传图片文件 (jpg, png, gif, webp)');
+      return;
+    }
+    
+    // 检查文件大小（最大10MB）
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      ElMessage.error('文件过大，最大支持10MB');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+      const response = await api.post(`/syyb/drugs/${drug.id}/upload_image/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (response.data.success) {
+        ElMessage.success('图片上传成功');
+        // 更新本地药品数据
+        drug.drug_image = response.data.image_url;
+      }
+    } catch (error: any) {
+      ElMessage.error(error.response?.data?.error || '上传失败');
+    }
+  };
+  input.click();
+};
+
+// 删除药品图片
+const handleDeleteImage = async (drug: any) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该药品的图片吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    const response = await api.delete(`/syyb/drugs/${drug.id}/delete_image/`);
+    
+    if (response.data.success) {
+      ElMessage.success('图片删除成功');
+      drug.drug_image = null;
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || '删除失败');
+    }
   }
 };
 
@@ -848,6 +1216,11 @@ onMounted(() => {
   fetchDrugs();
   fetchCategories();
   fetchManufacturers();
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopImportStatusPolling();
 });
 </script>
 
@@ -936,6 +1309,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+.drug-image-wrapper:hover .image-upload-overlay {
+  opacity: 1;
 }
 
 .drug-image {
@@ -948,9 +1327,37 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #c0c4cc;
+  gap: 8px;
+}
+
+.image-placeholder .upload-hint {
+  font-size: 12px;
+  color: #909399;
+}
+
+.image-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s;
+  gap: 8px;
+}
+
+.image-upload-overlay span {
+  font-size: 14px;
 }
 
 .drug-info {
@@ -1057,10 +1464,31 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.detail-image:hover .detail-image-overlay {
+  opacity: 1;
+}
+
+.detail-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 8px;
+}
+
 .image-placeholder-large {
   width: 120px;
   height: 120px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
@@ -1141,6 +1569,45 @@ onMounted(() => {
   width: 100%;
 }
 
+/* 导入进度样式 */
+.import-progress {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.progress-message {
+  margin-top: 20px;
+  font-size: 16px;
+  color: #303133;
+}
+
+.progress-detail {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #909399;
+}
+
+/* 导入结果详情 */
+.import-result-detail {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.import-result-detail p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.import-errors {
+  margin-top: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 .image-upload-section {
   margin-top: 16px;
 }
@@ -1161,6 +1628,66 @@ onMounted(() => {
   :deep(.el-upload-dragger) {
     padding: 20px;
   }
+}
+
+/* 编辑表单图片区域 */
+.edit-image-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.edit-image-preview {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px dashed #dcdfe6;
+  transition: all 0.3s;
+}
+
+.edit-image-preview:hover {
+  border-color: #409eff;
+}
+
+.edit-image-preview:hover .edit-image-overlay {
+  opacity: 1;
+}
+
+.edit-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s;
+  gap: 4px;
+}
+
+.edit-image-overlay span {
+  font-size: 12px;
+}
+
+.edit-image-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.image-tip {
+  font-size: 13px;
+  color: #909399;
+  margin: 0;
 }
 
 /* 响应式 */

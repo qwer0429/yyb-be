@@ -12,6 +12,7 @@ class DrugListSerializer(serializers.ModelSerializer):
     manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
     manufacturer_abbreviation = serializers.CharField(source='manufacturer.abbreviation', read_only=True)
     manufacturer_holder_name = serializers.CharField(source='manufacturer_holder.name', read_only=True)
+    drug_image = serializers.SerializerMethodField()
     
     class Meta:
         model = Drug
@@ -23,6 +24,15 @@ class DrugListSerializer(serializers.ModelSerializer):
             'approval_number', 'approval_date', 'atc_code',
             'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
         ]
+    
+    def get_drug_image(self, obj):
+        """返回完整的图片URL"""
+        if obj.drug_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.drug_image.url)
+            return obj.drug_image.url
+        return None
 
 
 class DrugSerializer(serializers.ModelSerializer):
@@ -55,6 +65,9 @@ class DrugSerializer(serializers.ModelSerializer):
     manufacturer = serializers.PrimaryKeyRelatedField(
         queryset=Manufacturer.objects.all(), write_only=True, label="生产厂商ID"
     )
+    
+    # 图片字段返回完整URL
+    drug_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Drug
@@ -76,9 +89,19 @@ class DrugSerializer(serializers.ModelSerializer):
         if obj.type2_drug and obj.type2_drug.type1_drug:
             return obj.type2_drug.type1_drug.name
         return None
+    
     def get_type2_drug_name(self, obj):
         if obj.type2_drug:
             return obj.type2_drug.name
+        return None
+    
+    def get_drug_image(self, obj):
+        """返回完整的图片URL"""
+        if obj.drug_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.drug_image.url)
+            return obj.drug_image.url
         return None
 
 class ManufacturerHolderSerializer(serializers.ModelSerializer):# 定义一个只写的主键相关字段，用于接收药品的上市许可证持有人 ID
@@ -147,7 +170,7 @@ class CabinetDrugListSerializer(serializers.ModelSerializer):
     """药箱药品列表序列化器（用于展示）"""
     drug_name = serializers.CharField(source='drug.drug_name', read_only=True)
     drug_trade_name = serializers.CharField(source='drug.trade_name', read_only=True)
-    drug_image = serializers.ImageField(source='drug.drug_image', read_only=True)
+    drug_image = serializers.SerializerMethodField()
     drug_specification = serializers.CharField(source='drug.specification', read_only=True)
     drug_dosage_form = serializers.CharField(source='drug.dosage_form', read_only=True)
     manufacturer_name = serializers.CharField(source='drug.manufacturer.name', read_only=True)
@@ -175,6 +198,15 @@ class CabinetDrugListSerializer(serializers.ModelSerializer):
     
     def get_days_until_expiry(self, obj):
         return obj.days_until_expiry()
+    
+    def get_drug_image(self, obj):
+        """返回完整的图片URL"""
+        if obj.drug and obj.drug.drug_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.drug.drug_image.url)
+            return obj.drug.drug_image.url
+        return None
 
 
 class CabinetDrugCreateSerializer(serializers.ModelSerializer):

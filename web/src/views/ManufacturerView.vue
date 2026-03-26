@@ -72,6 +72,19 @@
         <el-empty v-if="!loading1 && holderList.length === 0" description="暂无上市许可持有人数据">
           <el-button type="primary" @click="handleAddHolder"><el-icon><Plus /></el-icon>添加持有人</el-button>
         </el-empty>
+
+        <!-- 持有人分页 -->
+        <div class="pagination-wrapper" v-if="holderTotal > 0">
+          <el-pagination
+            v-model:current-page="holderPage"
+            v-model:page-size="holderPageSize"
+            :page-sizes="[42, 84, 168, 336]"
+            :total="holderTotal"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleHolderSizeChange"
+            @current-change="handleHolderPageChange"
+          />
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="生产厂商" name="manufacturer">
@@ -138,6 +151,19 @@
         <el-empty v-if="!loading2 && manufacturerList.length === 0" description="暂无生产厂商数据">
           <el-button type="success" @click="handleAddManufacturer"><el-icon><Plus /></el-icon>添加厂商</el-button>
         </el-empty>
+
+        <!-- 厂商分页 -->
+        <div class="pagination-wrapper" v-if="manufacturerTotal > 0">
+          <el-pagination
+            v-model:current-page="manufacturerPage"
+            v-model:page-size="manufacturerPageSize"
+            :page-sizes="[12, 24, 48, 96]"
+            :total="manufacturerTotal"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleManufacturerSizeChange"
+            @current-change="handleManufacturerPageChange"
+          />
+        </div>
       </el-tab-pane>
     </el-tabs>
 
@@ -170,6 +196,14 @@ const manufacturerList = ref([]);
 const loading1 = ref(false);
 const loading2 = ref(false);
 const activeTab = ref('holder');
+
+// 分页数据
+const holderPage = ref(1);
+const holderPageSize = ref(12);
+const holderTotal = ref(0);
+const manufacturerPage = ref(1);
+const manufacturerPageSize = ref(12);
+const manufacturerTotal = ref(0);
 const dialogVisible = ref(false);
 const dialogType = ref<'holder' | 'manufacturer'>('holder');
 const isEdit = ref(false);
@@ -256,8 +290,14 @@ const dialogTitle = computed(() => {
 const fetchHolderList = async () => {
   loading1.value = true;
   try {
-    const response = await api.get('/syyb/manufacturerholder/');
+    const response = await api.get('/syyb/manufacturerholder/', {
+      params: {
+        page: holderPage.value,
+        page_size: holderPageSize.value
+      }
+    });
     holderList.value = response.data.results || [];
+    holderTotal.value = response.data.count || 0;
   } catch (error) {
     console.error('获取上市许可持有人失败:', error);
   } finally {
@@ -268,13 +308,42 @@ const fetchHolderList = async () => {
 const fetchManufacturerList = async () => {
   loading2.value = true;
   try {
-    const response = await api.get('/syyb/manufacturer/');
+    const response = await api.get('/syyb/manufacturer/', {
+      params: {
+        page: manufacturerPage.value,
+        page_size: manufacturerPageSize.value
+      }
+    });
     manufacturerList.value = response.data.results || [];
+    manufacturerTotal.value = response.data.count || 0;
   } catch (error) {
     console.error('获取生产厂商失败:', error);
   } finally {
     loading2.value = false;
   }
+};
+
+// 分页事件处理
+const handleHolderSizeChange = (val: number) => {
+  holderPageSize.value = val;
+  holderPage.value = 1;
+  fetchHolderList();
+};
+
+const handleHolderPageChange = (val: number) => {
+  holderPage.value = val;
+  fetchHolderList();
+};
+
+const handleManufacturerSizeChange = (val: number) => {
+  manufacturerPageSize.value = val;
+  manufacturerPage.value = 1;
+  fetchManufacturerList();
+};
+
+const handleManufacturerPageChange = (val: number) => {
+  manufacturerPage.value = val;
+  fetchManufacturerList();
 };
 
 const handleAddHolder = () => { dialogType.value = 'holder'; isEdit.value = false; form.id = null; form.name = ''; form.abbreviation = ''; dialogVisible.value = true; };
@@ -342,8 +411,17 @@ onMounted(() => { fetchHolderList(); fetchManufacturerList(); });
 .card-tags { display: flex; gap: 8px; flex-wrap: wrap; }
 .card-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.3s ease; }
 .manufacturer-card:hover .card-actions { opacity: 1; }
+.pagination-wrapper {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ebeef5;
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 768px) {
   .manufacturer-grid { grid-template-columns: 1fr; }
   .tab-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+  .pagination-wrapper { justify-content: center; }
 }
 </style>

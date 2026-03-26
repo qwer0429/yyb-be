@@ -21,9 +21,12 @@ from .views import (
     Type2DrugsByType1View, DrugsByType2View, FamilyUseList, SearchManufacturer, 
     SearchManufacturerHolder, SearchAnything, AllType1WithType2View, BatchDeleteDrugs,
     BatchDeleteType1Drug, BatchDeleteType2Drug, BatchDeleteManufacturer, BatchDeleteManufacturerHolder,
-    add_drugs_from_excel, download_import_template, preview_import_excel,
+    add_drugs_from_excel, download_import_template, preview_import_excel, batch_import_drugs_simple,
+    upload_drug_image, delete_drug_image,
     MedicineCabinetViewSet, CabinetDrugViewSet, CabinetDrugsByCabinetView,
-    UpdateCabinetDrugQuantityView, ExpiringDrugsView, DefaultCabinetView
+    UpdateCabinetDrugQuantityView, ExpiringDrugsView, DefaultCabinetView,
+    async_import_drugs, get_import_task_status, list_import_tasks, cancel_import_task,
+    async_batch_import_simple
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -49,8 +52,20 @@ urlpatterns = [
     path('manufacturer/batch_delete/', BatchDeleteManufacturer.as_view(), name='batch-delete-manufacturer'),
     path('manufacturerholder/batch_delete/', BatchDeleteManufacturerHolder.as_view(), name='batch-delete-holder'),
     path('add_drugs_from_excel/', add_drugs_from_excel, name='add_drugs_from_excel'),
+    path('batch_import_drugs_simple/', batch_import_drugs_simple, name='batch-import-simple'),
     path('download_import_template/', download_import_template, name='download-import-template'),
     path('preview_import_excel/', preview_import_excel, name='preview-import-excel'),
+    
+    # 后台线程异步导入接口
+    path('async_import_drugs/', async_import_drugs, name='async-import-drugs'),
+    path('async_batch_import_simple/', async_batch_import_simple, name='async-batch-import-simple'),
+    path('import_task_status/<str:task_id>/', get_import_task_status, name='import-task-status'),
+    path('import_tasks/', list_import_tasks, name='list-import-tasks'),
+    path('import_tasks/<str:task_id>/cancel/', cancel_import_task, name='cancel-import-task'),
+    
+    # 药品图片上传/删除
+    path('drugs/<int:drug_id>/upload_image/', upload_drug_image, name='upload-drug-image'),
+    path('drugs/<int:drug_id>/delete_image/', delete_drug_image, name='delete-drug-image'),
     
     # ==================== 药箱模块路由 ====================
     path('cabinets/<int:cabinet_id>/drugs/', CabinetDrugsByCabinetView.as_view(), name='cabinet-drugs'),
