@@ -49,11 +49,14 @@
         <div v-if="drug.is_hot" class="hot-badge">热</div>
         
         <!-- 药品图片 -->
-        <div class="drug-image-wrapper">
+        <div class="drug-image-wrapper" @click.stop="previewImage(drug.drug_image)">
           <el-image
             :src="drug.drug_image || '/default-drug.png'"
             fit="cover"
             class="drug-image"
+            :preview-src-list="[drug.drug_image || '/default-drug.png']"
+            :initial-index="0"
+            preview-teleported
           >
             <template #error>
               <div class="image-placeholder">
@@ -61,6 +64,9 @@
               </div>
             </template>
           </el-image>
+          <div class="image-preview-hint">
+            <el-icon :size="16"><ZoomIn /></el-icon>
+          </div>
         </div>
         
         <!-- 药品信息 -->
@@ -109,7 +115,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[14, 28, 56, 112]"
+        :page-sizes="[15, 30, 60, 120]"
         :total="total"
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
@@ -257,7 +263,7 @@ import { ref, reactive, onMounted } from 'vue'
 import api from '../api'
 import { ElMessage } from 'element-plus'
 import { 
-  Search, FirstAidKit, Box, Document, View, InfoFilled 
+  Search, FirstAidKit, Box, Document, View, InfoFilled, ZoomIn 
 } from '@element-plus/icons-vue'
 
 // 搜索表单
@@ -270,7 +276,7 @@ const searchForm = reactive({
 const drugs = ref([])
 const loading = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(14)
+const pageSize = ref(15)
 const total = ref(0)
 
 // 分类选项
@@ -511,9 +517,33 @@ onMounted(() => {
 /* 药品卡片网格 */
 .drug-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
+}
+
+@media (max-width: 1400px) {
+  .drug-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .drug-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .drug-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .drug-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .drug-card {
@@ -547,18 +577,46 @@ onMounted(() => {
 }
 
 .drug-image-wrapper {
-  height: 160px;
+  height: 140px;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  cursor: zoom-in;
+}
+
+.image-preview-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.drug-image-wrapper:hover .image-preview-hint {
+  opacity: 1;
+}
+
+.drug-image-wrapper:hover .drug-image {
+  transform: scale(1.05);
 }
 
 .drug-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
 }
 
 .image-placeholder {
@@ -571,7 +629,7 @@ onMounted(() => {
 }
 
 .drug-info {
-  padding: 16px;
+  padding: 12px;
 }
 
 .drug-title {
@@ -647,7 +705,7 @@ onMounted(() => {
 .drug-actions {
   display: flex;
   justify-content: space-around;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-top: 1px solid #ebeef5;
   background: #fafafa;
 }
@@ -757,10 +815,5 @@ onMounted(() => {
   margin-left: 8px;
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
-  .drug-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* 响应式已在上面定义 */
 </style>

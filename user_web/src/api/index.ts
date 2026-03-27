@@ -31,8 +31,9 @@ api.interceptors.response.use(
     const authStore = useAuthStore()
     
     if (error.response?.status === 401) {
-      // Token 过期，尝试刷新
-      if (authStore.refreshToken) {
+      // 登录接口的 401 不需要刷新 token，直接抛出错误让业务层处理
+      const isLoginRequest = error.config?.url?.includes('/token/')
+      if (!isLoginRequest && authStore.refreshToken) {
         try {
           await authStore.refreshAccessToken()
           // 重试原请求
@@ -45,15 +46,11 @@ api.interceptors.response.use(
           window.location.href = '/login'
           return Promise.reject(refreshError)
         }
-      } else {
+      } else if (!isLoginRequest) {
         authStore.logout()
         window.location.href = '/login'
       }
     }
-    
-    // 显示错误信息
-    const msg = error.response?.data?.detail || error.response?.data?.error || '请求失败'
-    ElMessage.error(msg)
     
     return Promise.reject(error)
   }

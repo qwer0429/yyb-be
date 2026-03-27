@@ -70,59 +70,89 @@
       </template>
     </el-dialog>
 
-    <!-- 药品列表对话框 -->
+    <!-- 药品列表对话框 - 卡片形式 -->
     <el-dialog
       v-model="drugsDialogVisible"
       :title="`${selectedType2Name} - 药品列表`"
       width="1000px"
       top="3vh"
       destroy-on-close
+      class="drugs-dialog"
     >
-      <el-table :data="categoryDrugs" v-loading="drugsLoading" stripe border>
-        <el-table-column label="药品" min-width="180">
-          <template #default="{ row }">
-            <div class="drug-info-cell">
+      <div v-loading="drugsLoading" class="drugs-content">
+        <!-- 药品卡片网格 -->
+        <div v-if="categoryDrugs.length > 0" class="drug-cards-grid">
+          <div
+            v-for="drug in categoryDrugs"
+            :key="drug.id"
+            class="drug-card-item"
+            @click="handleViewDrug(drug)"
+          >
+            <!-- 热门标记 -->
+            <div v-if="drug.is_hot" class="hot-badge">热门</div>
+            
+            <!-- 医保标记 -->
+            <div v-if="drug.medical_insurance" class="insurance-badge" :class="getInsuranceClass(drug.medical_insurance)">
+              {{ drug.medical_insurance }}
+            </div>
+            
+            <!-- 药品图片 -->
+            <div class="drug-image-wrapper">
               <el-image
-                :src="row.drug_image || '/default-drug.png'"
+                :src="drug.drug_image || '/default-drug.png'"
                 fit="cover"
-                style="width: 40px; height: 40px; border-radius: 4px"
+                class="drug-image"
               >
                 <template #error>
                   <div class="image-placeholder">
-                    <el-icon :size="18"><FirstAidKit /></el-icon>
+                    <el-icon :size="32"><FirstAidKit /></el-icon>
                   </div>
                 </template>
               </el-image>
-              <div class="drug-names">
-                <div class="drug-name-primary">{{ row.trade_name || row.drug_name }}</div>
-                <div class="drug-name-secondary" v-if="row.trade_name">{{ row.drug_name }}</div>
-              </div>
             </div>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="specification" label="规格" width="120" />
-        <el-table-column prop="manufacturer_name" label="生产厂商" min-width="140" />
-        <el-table-column prop="medical_insurance" label="医保" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.medical_insurance" :type="getInsuranceType(row.medical_insurance)" size="small">
-              {{ row.medical_insurance }}
-            </el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="120" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleViewDrug(row)">
-              <el-icon><View /></el-icon>
-            </el-button>
-            <el-button type="success" size="small" @click="handleAddToCabinet(row)">
-              <el-icon><Plus /></el-icon>
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            
+            <!-- 药品信息 -->
+            <div class="drug-info">
+              <h4 class="drug-name">{{ drug.trade_name || drug.drug_name }}</h4>
+              <p v-if="drug.trade_name" class="drug-subname">{{ drug.drug_name }}</p>
+              
+              <div class="drug-tags">
+                <el-tag v-if="drug.dosage_form" type="info" size="small" effect="plain">
+                  {{ drug.dosage_form }}
+                </el-tag>
+              </div>
+              
+              <p class="drug-spec">{{ drug.specification || '暂无规格' }}</p>
+              
+              <p class="drug-manufacturer">{{ drug.manufacturer_name || '厂商未知' }}</p>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="drug-actions" @click.stop>
+              <el-button 
+                type="primary" 
+                size="small" 
+                circle
+                @click="handleViewDrug(drug)"
+                title="查看详情"
+              >
+                <el-icon><View /></el-icon>
+              </el-button>
+              <el-button 
+                type="success" 
+                size="small" 
+                circle
+                @click="handleAddToCabinet(drug)"
+                title="加入药箱"
+              >
+                <el-icon><Plus /></el-icon>
+              </el-button>
+            </div>
+          </div>
+        </div>
+        
+        <el-empty v-else description="暂无药品数据" />
+      </div>
 
       <template #footer>
         <el-button @click="drugsDialogVisible = false">关闭</el-button>
@@ -340,6 +370,26 @@ const getCategoryDesc = (name: string) => {
   return '点击查看详情'
 }
 
+// 获取医保类型样式
+const getInsuranceClass = (type: string) => {
+  const map: Record<string, string> = {
+    '甲类': 'type-a',
+    '乙类': 'type-b',
+    '非医保': 'type-none'
+  }
+  return map[type] || 'type-none'
+}
+
+// 获取医保类型
+const getInsuranceType = (type: string) => {
+  const map: Record<string, string> = {
+    '甲类': 'danger',
+    '乙类': 'warning',
+    '非医保': 'info'
+  }
+  return map[type] || 'info'
+}
+
 // 获取一级分类
 const fetchType1List = async () => {
   loading1.value = true
@@ -393,16 +443,6 @@ const viewDrugsByCategory = async (type2: any) => {
 const handleViewDrug = (row: any) => {
   currentDrug.value = row
   drugDetailVisible.value = true
-}
-
-// 获取医保类型
-const getInsuranceType = (type: string) => {
-  const map: Record<string, string> = {
-    '甲类': 'danger',
-    '乙类': 'warning',
-    '非医保': 'info'
-  }
-  return map[type] || 'info'
 }
 
 // 获取药箱选项
@@ -632,38 +672,163 @@ onMounted(() => {
   transform: translateX(4px);
 }
 
-/* 药品表格样式 */
-.drug-info-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* 药品卡片网格 - 新增样式 */
+.drugs-dialog :deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+.drugs-content {
+  min-height: 300px;
+}
+
+.drug-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.drug-card-item {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ebeef5;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.drug-card-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: #409eff;
+}
+
+/* 标记 */
+.hot-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #f56c6c 0%, #ff9a9e 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+  z-index: 2;
+}
+
+.insurance-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 20px;
+  z-index: 2;
+}
+
+.insurance-badge.type-a {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.insurance-badge.type-b {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.insurance-badge.type-none {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* 药品图片 */
+.drug-image-wrapper {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+}
+
+.drug-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.drug-card-item:hover .drug-image {
+  transform: scale(1.05);
 }
 
 .image-placeholder {
-  width: 40px;
-  height: 40px;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
-  border-radius: 4px;
   color: #c0c4cc;
 }
 
-.drug-names {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* 药品信息 */
+.drug-info {
+  padding: 16px;
 }
 
-.drug-name-primary {
+.drug-name {
+  font-size: 15px;
   font-weight: 600;
   color: #303133;
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.drug-name-secondary {
+.drug-subname {
   font-size: 12px;
   color: #909399;
+  margin: 0 0 10px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drug-tags {
+  margin-bottom: 10px;
+}
+
+.drug-spec {
+  font-size: 13px;
+  color: #606266;
+  margin: 0 0 8px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drug-manufacturer {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 操作按钮 */
+.drug-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid #ebeef5;
+  background: #f8f9fa;
 }
 
 /* 药品详情样式 */
@@ -748,6 +913,11 @@ onMounted(() => {
 
   .subcategory-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .drug-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
   }
 }
 </style>

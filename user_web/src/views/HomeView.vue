@@ -4,137 +4,172 @@
     <el-card class="welcome-card" shadow="never">
       <div class="welcome-content">
         <div class="welcome-text">
-          <h1>欢迎使用医药宝用户端 👋</h1>
-          <p>在这里您可以浏览药品信息、查看分类、管理您的个人药箱</p>
+          <div class="greeting">
+            <span class="greeting-icon">👋</span>
+            <h1>{{ greeting }}，{{ authStore.user?.name || authStore.username || '用户' }}</h1>
+          </div>
+          <p class="welcome-desc">欢迎使用医药宝，这里是您的个人药品管理中心</p>
         </div>
-        <div class="welcome-actions">
-          <el-button type="primary" size="large" @click="$router.push('/drugs')">
-            <el-icon><FirstAidKit /></el-icon>
-            浏览药品
-          </el-button>
-          <el-button type="success" size="large" @click="$router.push('/cabinets')">
-            <el-icon><Box /></el-icon>
-            我的药箱
-          </el-button>
+        <div class="welcome-stats">
+          <div class="quick-stat">
+            <div class="stat-icon-bg blue">
+              <el-icon :size="24"><FirstAidKit /></el-icon>
+            </div>
+            <div class="stat-info">
+              <span class="stat-num">{{ stats.totalDrugs }}</span>
+              <span class="stat-label">我的药品</span>
+            </div>
+          </div>
         </div>
+      </div>
+      <div class="welcome-actions">
+        <el-button type="primary" size="large" class="action-btn primary" @click="$router.push('/drugs')">
+          <el-icon :size="18"><Search /></el-icon>
+          <span>浏览药品</span>
+        </el-button>
+        <el-button size="large" class="action-btn secondary" @click="$router.push('/cabinets')">
+          <el-icon :size="18"><Box /></el-icon>
+          <span>我的药箱</span>
+        </el-button>
       </div>
     </el-card>
 
+    <!-- 过期药品警告提示 -->
+    <transition name="slide-down">
+      <el-alert
+        v-if="stats.expired > 0 || stats.expiringSoon > 0"
+        :title="alertTitle"
+        :type="stats.expired > 0 ? 'error' : 'warning'"
+        show-icon
+        :closable="false"
+        class="expiry-alert"
+        @click="$router.push('/cabinets')"
+      >
+        <template #default>
+          <div class="alert-content">
+            <span>{{ alertDescription }}</span>
+            <el-button 
+              :type="stats.expired > 0 ? 'danger' : 'warning'" 
+              size="small"
+              plain
+              @click.stop="$router.push('/cabinets')"
+            >
+              查看详情
+            </el-button>
+          </div>
+        </template>
+      </el-alert>
+    </transition>
+
     <!-- 功能卡片 -->
     <el-row :gutter="20" class="feature-row">
-      <el-col :span="8">
+      <el-col :xs="24" :sm="12" :md="8">
         <el-card class="feature-card" shadow="hover" @click="$router.push('/drugs')">
-          <div class="feature-icon blue">
-            <el-icon :size="32"><FirstAidKit /></el-icon>
+          <div class="feature-content">
+            <div class="feature-icon-wrapper blue">
+              <el-icon :size="28"><FirstAidKit /></el-icon>
+            </div>
+            <div class="feature-text">
+              <h3>药品浏览</h3>
+              <p>查看药品详情、适用症状和使用说明</p>
+            </div>
+            <el-icon class="feature-arrow"><ArrowRight /></el-icon>
           </div>
-          <h3>药品浏览</h3>
-          <p>查看所有药品信息，了解药品详情、适用症状和使用说明</p>
         </el-card>
       </el-col>
       
-      <el-col :span="8">
+      <el-col :xs="24" :sm="12" :md="8">
         <el-card class="feature-card" shadow="hover" @click="$router.push('/categories')">
-          <div class="feature-icon green">
-            <el-icon :size="32"><Collection /></el-icon>
+          <div class="feature-content">
+            <div class="feature-icon-wrapper green">
+              <el-icon :size="28"><Collection /></el-icon>
+            </div>
+            <div class="feature-text">
+              <h3>分类浏览</h3>
+              <p>按分类查看药品，快速找到所需类型</p>
+            </div>
+            <el-icon class="feature-arrow"><ArrowRight /></el-icon>
           </div>
-          <h3>分类浏览</h3>
-          <p>按分类查看药品，快速找到您需要的药品类型</p>
         </el-card>
       </el-col>
       
-      <el-col :span="8">
+      <el-col :xs="24" :sm="12" :md="8">
         <el-card class="feature-card" shadow="hover" @click="$router.push('/cabinets')">
-          <div class="feature-icon orange">
-            <el-icon :size="32"><Box /></el-icon>
+          <div class="feature-content">
+            <div class="feature-icon-wrapper orange">
+              <el-icon :size="28"><Box /></el-icon>
+            </div>
+            <div class="feature-text">
+              <h3>我的药箱</h3>
+              <p>管理个人药箱，跟踪有效期和库存</p>
+            </div>
+            <el-icon class="feature-arrow"><ArrowRight /></el-icon>
           </div>
-          <h3>我的药箱</h3>
-          <p>管理您的个人药箱，跟踪药品有效期和库存情况</p>
         </el-card>
       </el-col>
     </el-row>
-
-    <!-- 过期药品警告提示 -->
-    <el-alert
-      v-if="stats.expired > 0 || stats.expiringSoon > 0"
-      :title="alertTitle"
-      :type="stats.expired > 0 ? 'error' : 'warning'"
-      :description="alertDescription"
-      show-icon
-      :closable="false"
-      class="expiry-alert"
-      @click="$router.push('/cabinets')"
-    >
-      <template #default>
-        <div class="alert-content">
-          <span>{{ alertDescription }}</span>
-          <el-button 
-            :type="stats.expired > 0 ? 'danger' : 'warning'" 
-            size="small" 
-            @click.stop="$router.push('/cabinets')"
-          >
-            查看详情
-          </el-button>
-        </div>
-      </template>
-    </el-alert>
 
     <!-- 统计信息 -->
     <el-card class="stats-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <span>药箱概览</span>
-          <el-link type="primary" @click="$router.push('/cabinets')">查看详情</el-link>
+          <div class="header-title">
+            <el-icon :size="20" color="#409EFF"><TrendCharts /></el-icon>
+            <span>药箱概览</span>
+          </div>
+          <el-link type="primary" :underline="false" @click="$router.push('/cabinets')">
+            查看详情
+            <el-icon class="link-arrow"><ArrowRight /></el-icon>
+          </el-link>
         </div>
       </template>
       
-      <el-row :gutter="20">
-        <el-col :span="6">
+      <el-row :gutter="16">
+        <el-col :xs="12" :sm="6">
           <div class="stat-item">
-            <div class="stat-value">{{ stats.totalDrugs }}</div>
-            <div class="stat-label">药品总数</div>
+            <div class="stat-item-icon blue">
+              <el-icon :size="24"><FirstAidKit /></el-icon>
+            </div>
+            <div class="stat-item-content">
+              <div class="stat-value">{{ stats.totalDrugs }}</div>
+              <div class="stat-label">药品总数</div>
+            </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="6">
           <div class="stat-item">
-            <div class="stat-value text-success">{{ stats.validDrugs }}</div>
-            <div class="stat-label">有效期内</div>
+            <div class="stat-item-icon green">
+              <el-icon :size="24"><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-item-content">
+              <div class="stat-value text-success">{{ stats.validDrugs }}</div>
+              <div class="stat-label">有效期内</div>
+            </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="6">
           <div class="stat-item">
-            <div class="stat-value text-warning">{{ stats.expiringSoon }}</div>
-            <div class="stat-label">即将过期</div>
+            <div class="stat-item-icon warning">
+              <el-icon :size="24"><Timer /></el-icon>
+            </div>
+            <div class="stat-item-content">
+              <div class="stat-value text-warning">{{ stats.expiringSoon }}</div>
+              <div class="stat-label">即将过期</div>
+            </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="6">
           <div class="stat-item">
-            <div class="stat-value text-danger">{{ stats.expired }}</div>
-            <div class="stat-label">已过期</div>
+            <div class="stat-item-icon danger">
+              <el-icon :size="24"><Warning /></el-icon>
+            </div>
+            <div class="stat-item-content">
+              <div class="stat-value text-danger">{{ stats.expired }}</div>
+              <div class="stat-label">已过期</div>
+            </div>
           </div>
         </el-col>
       </el-row>
-    </el-card>
-
-    <!-- 快捷操作 -->
-    <el-card class="quick-actions" shadow="never">
-      <template #header>
-        <span>快捷操作</span>
-      </template>
-      
-      <div class="action-list">
-        <div class="action-item" @click="$router.push('/drugs')">
-          <el-icon :size="20" color="#409EFF"><Search /></el-icon>
-          <span>搜索药品</span>
-        </div>
-        <div class="action-item" @click="$router.push('/categories')">
-          <el-icon :size="20" color="#67C23A"><FolderOpened /></el-icon>
-          <span>浏览分类</span>
-        </div>
-        <div class="action-item" @click="$router.push('/cabinets')">
-          <el-icon :size="20" color="#E6A23C"><Plus /></el-icon>
-          <span>添加药品到药箱</span>
-        </div>
-      </div>
     </el-card>
   </div>
 </template>
@@ -142,7 +177,20 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import api from '../api'
-import { FirstAidKit, Collection, Box, Search, FolderOpened, Plus } from '@element-plus/icons-vue'
+import { useAuthStore } from '../stores/auth'
+import { 
+  FirstAidKit, 
+  Collection, 
+  Box, 
+  Search, 
+  ArrowRight,
+  TrendCharts,
+  CircleCheck,
+  Timer,
+  Warning
+} from '@element-plus/icons-vue'
+
+const authStore = useAuthStore()
 
 const stats = ref({
   totalDrugs: 0,
@@ -151,12 +199,20 @@ const stats = ref({
   expired: 0
 })
 
+// 问候语
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '早上好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
+
 // 警告标题
 const alertTitle = computed(() => {
   if (stats.value.expired > 0) {
-    return `⚠️ 您有 ${stats.value.expired} 个药品已过期`
+    return `发现 ${stats.value.expired} 个药品已过期`
   } else if (stats.value.expiringSoon > 0) {
-    return `⏰ 您有 ${stats.value.expiringSoon} 个药品即将过期`
+    return `有 ${stats.value.expiringSoon} 个药品即将过期`
   }
   return ''
 })
@@ -164,11 +220,11 @@ const alertTitle = computed(() => {
 // 警告描述
 const alertDescription = computed(() => {
   if (stats.value.expired > 0 && stats.value.expiringSoon > 0) {
-    return `其中 ${stats.value.expired} 个已过期，${stats.value.expiringSoon} 个将在7天内过期，请及时处理。`
+    return `其中 ${stats.value.expired} 个已过期，${stats.value.expiringSoon} 个将在7天内过期`
   } else if (stats.value.expired > 0) {
-    return '过期药品可能失效或产生有害物质，请及时清理并更换。'
+    return '过期药品可能失效或产生有害物质，请及时清理'
   } else if (stats.value.expiringSoon > 0) {
-    return '这些药品将在7天内过期，请尽快使用或更新。'
+    return '这些药品将在7天内过期，请尽快使用'
   }
   return ''
 })
@@ -196,29 +252,101 @@ onMounted(() => {
   padding: 0;
 }
 
+/* 欢迎卡片 */
 .welcome-card {
-  margin-bottom: 20px;
-  border-radius: 12px;
+  margin-bottom: 24px;
+  border-radius: 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
+  border: none;
+  overflow: hidden;
+}
+
+.welcome-card :deep(.el-card__body) {
+  padding: 32px;
 }
 
 .welcome-content {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.greeting {
+  display: flex;
   align-items: center;
-  padding: 20px;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.greeting-icon {
+  font-size: 32px;
+  animation: wave 2s infinite ease-in-out;
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(20deg); }
+  75% { transform: rotate(-10deg); }
 }
 
 .welcome-text h1 {
-  margin: 0 0 10px 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
-.welcome-text p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 14px;
+.welcome-desc {
+  margin: 8px 0 0 0;
+  opacity: 0.95;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.welcome-stats {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 16px 24px;
+}
+
+.quick-stat {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-icon-bg {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.stat-icon-bg.blue {
+  color: #409EFF;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-info .stat-label {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 4px;
 }
 
 .welcome-actions {
@@ -226,62 +354,172 @@ onMounted(() => {
   gap: 12px;
 }
 
-.feature-row {
-  margin-bottom: 20px;
+.action-btn {
+  border-radius: 10px;
+  padding: 0 24px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
 }
 
-.feature-card {
+.action-btn.primary {
+  background: #fff;
+  color: #667eea;
+  border: none;
+}
+
+.action-btn.primary:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.action-btn.secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+/* 过期警告 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.expiry-alert {
+  margin-bottom: 24px;
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s;
-  text-align: center;
-  padding: 20px;
+  transition: all 0.3s ease;
 }
 
-.feature-card:hover {
-  transform: translateY(-5px);
+.expiry-alert:hover {
+  transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-.feature-icon {
-  width: 64px;
-  height: 64px;
+.alert-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* 功能卡片 */
+.feature-row {
+  margin-bottom: 24px;
+}
+
+.feature-card {
   border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.feature-card :deep(.el-card__body) {
+  padding: 24px;
+}
+
+.feature-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.feature-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
   color: #fff;
+  flex-shrink: 0;
 }
 
-.feature-icon.blue {
+.feature-icon-wrapper.blue {
   background: linear-gradient(135deg, #409EFF 0%, #79bbff 100%);
+  box-shadow: 0 8px 20px rgba(64, 158, 255, 0.3);
 }
 
-.feature-icon.green {
+.feature-icon-wrapper.green {
   background: linear-gradient(135deg, #67C23A 0%, #95d475 100%);
+  box-shadow: 0 8px 20px rgba(103, 194, 58, 0.3);
 }
 
-.feature-icon.orange {
+.feature-icon-wrapper.orange {
   background: linear-gradient(135deg, #E6A23C 0%, #f3d19e 100%);
+  box-shadow: 0 8px 20px rgba(230, 162, 60, 0.3);
 }
 
-.feature-card h3 {
-  margin: 0 0 10px 0;
-  font-size: 18px;
+.feature-text {
+  flex: 1;
+}
+
+.feature-text h3 {
+  margin: 0 0 6px 0;
+  font-size: 17px;
   color: #303133;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.feature-card p {
+.feature-text p {
   margin: 0;
   font-size: 13px;
-  color: #909399;
-  line-height: 1.6;
+  color: #606266;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
+.feature-arrow {
+  color: #c0c4cc;
+  font-size: 18px;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-arrow {
+  color: #409EFF;
+  transform: translateX(4px);
+}
+
+/* 统计卡片 */
 .stats-card {
-  margin-bottom: 20px;
-  border-radius: 12px;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.stats-card :deep(.el-card__header) {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.stats-card :deep(.el-card__body) {
+  padding: 24px;
 }
 
 .card-header {
@@ -290,16 +528,82 @@ onMounted(() => {
   align-items: center;
 }
 
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.link-arrow {
+  font-size: 12px;
+  margin-left: 4px;
+  transition: transform 0.3s ease;
+}
+
+.el-link:hover .link-arrow {
+  transform: translateX(4px);
+}
+
 .stat-item {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 16px;
   padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  background: #f0f2f5;
+  transform: translateY(-2px);
+}
+
+.stat-item-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-item-icon.blue {
+  background: rgba(64, 158, 255, 0.1);
+  color: #409EFF;
+}
+
+.stat-item-icon.green {
+  background: rgba(103, 194, 58, 0.1);
+  color: #67C23A;
+}
+
+.stat-item-icon.warning {
+  background: rgba(230, 162, 60, 0.1);
+  color: #E6A23C;
+}
+
+.stat-item-icon.danger {
+  background: rgba(245, 108, 108, 0.1);
+  color: #F56C6C;
+}
+
+.stat-item-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-value {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   color: #303133;
-  margin-bottom: 8px;
+  line-height: 1;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .stat-value.text-success {
@@ -314,57 +618,32 @@ onMounted(() => {
   color: #F56C6C;
 }
 
-.stat-label {
-  font-size: 14px;
+.stat-item-content .stat-label {
+  font-size: 13px;
   color: #909399;
 }
 
-.quick-actions {
-  border-radius: 12px;
-}
-
-.action-list {
-  display: flex;
-  gap: 20px;
-}
-
-.action-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.action-item:hover {
-  background: #e6f2ff;
-}
-
-/* 过期药品警告提示 */
-.expiry-alert {
-  margin-bottom: 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.expiry-alert:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.alert-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.alert-content span {
-  flex: 1;
+@media (max-width: 768px) {
+  .welcome-content {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .welcome-stats {
+    width: 100%;
+  }
+  
+  .welcome-actions {
+    flex-direction: column;
+  }
+  
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .stat-item {
+    margin-bottom: 12px;
+  }
 }
 </style>

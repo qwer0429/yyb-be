@@ -102,8 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
       ElMessage.success('登录成功')
       return true
     } catch (error: any) {
-      const msg = error.response?.data?.detail || '登录失败，请检查用户名和密码'
-      ElMessage.error(msg)
+      ElMessage.error('用户名或密码错误，请重新输入')
       return false
     } finally {
       isLoading.value = false
