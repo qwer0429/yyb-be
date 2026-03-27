@@ -61,7 +61,7 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   
   // 设置页面标题
-  document.title = to.meta.title ? `${to.meta.title} - 医药宝用户端` : '医药宝用户端'
+  document.title = to.meta.title ? `${to.meta.title} | 医药宝` : '医药宝'
   
   // 公开页面直接放行
   if (to.meta.public) {
