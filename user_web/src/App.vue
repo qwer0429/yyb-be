@@ -76,6 +76,18 @@
                 </div>
               </template>
             </el-menu-item>
+            
+            <el-menu-item index="/smart-doctor" class="menu-item">
+              <div class="menu-icon-wrapper purple">
+                <el-icon><FirstAidKit /></el-icon>
+              </div>
+              <template #title>
+                <span class="menu-title">智能医生</span>
+                <div class="menu-arrow">
+                  <el-icon><ArrowRight /></el-icon>
+                </div>
+              </template>
+            </el-menu-item>
           </el-menu>
           
           <!-- 侧边栏底部 -->
@@ -221,7 +233,8 @@ const pageTitle = computed(() => {
     '/': '首页',
     '/drugs': '药品浏览',
     '/categories': '分类浏览',
-    '/cabinets': '我的药箱'
+    '/cabinets': '我的药箱',
+    '/smart-doctor': '智能医生'
   }
   return titles[route.path] || ''
 })

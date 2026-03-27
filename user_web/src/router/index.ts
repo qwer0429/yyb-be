@@ -39,6 +39,12 @@ const routes = [
     component: () => import('../views/MedicineCabinetView.vue'),
     meta: { title: '我的药箱' }
   },
+  {
+    path: '/smart-doctor',
+    name: 'smart-doctor',
+    component: () => import('../views/SmartDoctorView.vue'),
+    meta: { title: '智能医生' }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',

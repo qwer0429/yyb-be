@@ -13,6 +13,7 @@ class DrugListSerializer(serializers.ModelSerializer):
     manufacturer_abbreviation = serializers.CharField(source='manufacturer.abbreviation', read_only=True)
     manufacturer_id = serializers.IntegerField(source='manufacturer.id', read_only=True)
     manufacturer_holder_name = serializers.CharField(source='manufacturer_holder.name', read_only=True)
+    manufacturer_holder_id = serializers.IntegerField(source='manufacturer_holder.id', read_only=True)
     drug_image = serializers.SerializerMethodField()
     
     class Meta:
@@ -21,7 +22,7 @@ class DrugListSerializer(serializers.ModelSerializer):
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
             'specification', 'dosage_form', 'medical_insurance',
             'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
-            'manufacturer_abbreviation', 'manufacturer_holder_name',
+            'manufacturer_abbreviation', 'manufacturer_holder_name', 'manufacturer_holder_id',
             'approval_number', 'approval_date', 'atc_code',
             'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
         ]
