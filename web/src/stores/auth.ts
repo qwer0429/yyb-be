@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api'
 import { ElMessage } from 'element-plus'
+import { encryptPassword } from '../utils/crypto'
 
 interface User {
   id: number
@@ -36,9 +37,10 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (username: string, password: string) => {
     isLoading.value = true
     try {
+      // 加密密码
       const response = await api.post<TokenResponse>('/api/token/', {
         username,
-        password
+        password: encryptPassword(password)
       })
       
       accessToken.value = response.data.access
