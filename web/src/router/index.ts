@@ -40,6 +40,12 @@ const routes = [
     component: () => import('../views/MedicineCabinetView.vue'),
     meta: { title: '智慧药箱' }
   },
+  {
+    path: '/users',
+    name: 'users',
+    component: () => import('../views/UserManagementView.vue'),
+    meta: { title: '用户管理' }
+  },
   // 404 页面
   {
     path: '/:pathMatch(.*)*',

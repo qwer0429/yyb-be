@@ -49,21 +49,8 @@ class Drug(models.Model):
     administration_route = models.CharField(max_length=100, blank=True, null=True, verbose_name="给药途径")
 
     # 持有人和生产商信息
-    manufacturer_holder = models.ForeignKey(
-        ManufacturerHolder,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        verbose_name="上市许可持有人"
-    )
-    manufacturer = models.ForeignKey(
-        Manufacturer,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        verbose_name="生产厂商"
-    )
-
+    manufacturer_holder = models.ForeignKey(ManufacturerHolder,on_delete=models.SET_NULL,blank=True,null=True,verbose_name="上市许可持有人")
+    manufacturer = models.ForeignKey(Manufacturer,on_delete=models.SET_NULL,blank=True,null=True,verbose_name="生产厂商")
     # 成分与批准信息
     active_ingredient = models.CharField(max_length=255, blank=True, null=True, verbose_name="活性成分")
     active_ingredient_en = models.CharField(max_length=1000, blank=True, null=True, verbose_name="活性成分（英文）")

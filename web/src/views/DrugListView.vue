@@ -666,7 +666,8 @@ const fetchManufacturers = async () => {
 // 搜索
 const handleSearch = () => {
   currentPage.value = 1;
-  if (searchForm.keyword) {
+  // 根据是否有分类或关键词选择搜索方式
+  if (searchForm.keyword || searchForm.category.length > 0) {
     searchDrugs();
   } else {
     fetchDrugs();
@@ -677,11 +678,51 @@ const handleSearch = () => {
 const searchDrugs = async () => {
   loading.value = true;
   try {
-    const response = await api.post('/syyb/search_anything/', {
-      text: searchForm.keyword
-    });
-    // 存储全部搜索结果，前端分页显示
-    let drugsList = response.data.results || [];
+    let drugsList: any[] = [];
+    
+    // 如果有关键词，调用搜索接口
+    if (searchForm.keyword) {
+      const response = await api.post('/syyb/search_anything/', {
+        text: searchForm.keyword
+      });
+      drugsList = response.data.results || [];
+    } else {
+      // 如果没有关键词但选择了分类，获取所有数据
+      const response = await api.get('/syyb/drug/', {
+        params: { page_size: 0 }
+      });
+      drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+    }
+    
+    // 根据分类筛选
+    if (searchForm.category.length > 0) {
+      const categoryId = searchForm.category[searchForm.category.length - 1]; // 获取最后一级的ID
+      
+      // 判断是一级分类还是二级分类
+      const isType1 = searchForm.category.length === 1;
+      
+      if (isType1) {
+        // 一级分类：筛选该一级分类下的所有药品
+        drugsList = drugsList.filter((drug: any) => {
+          // 通过二级分类的父级判断
+          const type2Id = drug.type2_drug_id;
+          if (!type2Id) return false;
+          
+          // 在 categoryOptions 中查找该二级分类所属的一级分类
+          for (const type1 of categoryOptions.value) {
+            if (type1.value === categoryId) {
+              // 检查该一级分类的子分类中是否包含这个药品的二级分类
+              const type2Ids = type1.children?.map((child: any) => child.value) || [];
+              return type2Ids.includes(type2Id);
+            }
+          }
+          return false;
+        });
+      } else {
+        // 二级分类：直接筛选
+        drugsList = drugsList.filter((drug: any) => drug.type2_drug_id === categoryId);
+      }
+    }
     
     // 排序：有图片的排在前面
     drugsList.sort((a: any, b: any) => {

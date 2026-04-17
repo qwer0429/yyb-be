@@ -16,7 +16,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import *
+from .views import (
+    UserRegisterView, CustomTokenObtainPairView,
+    UserManagementViewSet, CurrentUserView, ChangePasswordView
+)
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -26,10 +29,25 @@ from rest_framework_simplejwt.views import (
 #from scloud import urls as scloud_urls
 
 app_name = 'susers'
+
+# 创建路由器
+router = DefaultRouter()
+router.register(r'users', UserManagementViewSet, basename='user-management')
+
 urlpatterns = [
     # 用户注册接口
     path('api/register/', UserRegisterView.as_view(), name='register'),
+    
+    # 自定义登录接口（返回用户信息）
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    
+    # Token 刷新和验证
+    path('api/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    
+    # 当前用户信息管理
+    path('api/me/', CurrentUserView.as_view(), name='current-user'),
+    path('api/change_password/', ChangePasswordView.as_view(), name='change-password'),
 ]
-router = DefaultRouter()
 
 urlpatterns += router.urls

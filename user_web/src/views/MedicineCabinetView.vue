@@ -15,7 +15,7 @@
       </div>
       
       <el-row :gutter="20" class="stats-row">
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="stat-box">
             <div class="stat-icon blue">
               <el-icon :size="24"><Box /></el-icon>
@@ -26,7 +26,7 @@
             </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="stat-box">
             <div class="stat-icon green">
               <el-icon :size="24"><Check /></el-icon>
@@ -37,7 +37,7 @@
             </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="stat-box">
             <div class="stat-icon warning">
               <el-icon :size="24"><Warning /></el-icon>
@@ -48,7 +48,7 @@
             </div>
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="stat-box">
             <div class="stat-icon danger">
               <el-icon :size="24"><CircleClose /></el-icon>
@@ -56,6 +56,18 @@
             <div class="stat-info">
               <p class="stat-value">{{ stats.expired }}</p>
               <p class="stat-label">已过期</p>
+            </div>
+          </div>
+        </el-col>
+        
+        <el-col :span="4">
+          <div class="stat-box">
+            <div class="stat-icon purple">
+              <el-icon :size="24"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <p class="stat-value">{{ stats.lowStock }}</p>
+              <p class="stat-label">库存不足</p>
             </div>
           </div>
         </el-col>
@@ -107,11 +119,17 @@
               <el-radio-button label="valid">有效期内</el-radio-button>
               <el-radio-button label="expiring_soon">即将过期</el-radio-button>
               <el-radio-button label="expired">已过期</el-radio-button>
+              <el-radio-button label="low_stock">库存不足</el-radio-button>
             </el-radio-group>
           </div>
-          <el-button type="primary" size="small" @click="showAddDrugDialog">
-            <el-icon><Plus /></el-icon>添加药品
-          </el-button>
+          <div class="header-actions">
+            <el-button type="success" size="small" @click="showScanDialog">
+              <el-icon><Camera /></el-icon>扫码录入
+            </el-button>
+            <el-button type="primary" size="small" @click="showAddDrugDialog">
+              <el-icon><Plus /></el-icon>添加药品
+            </el-button>
+          </div>
         </div>
       </template>
       
@@ -138,13 +156,16 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="库存" width="120" align="center">
+        <el-table-column label="库存" width="140" align="center">
           <template #default="{ row }">
             <div class="quantity-control">
               <el-button link size="small" @click="updateQuantity(row, 'decrease')">
                 <el-icon><Minus /></el-icon>
               </el-button>
-              <span class="quantity">{{ row.quantity }}{{ row.unit || '件' }}</span>
+              <span :class="['quantity', { 'low-stock': row.quantity <= 2 }]">
+                {{ row.quantity }}{{ row.unit || '件' }}
+                <el-icon v-if="row.quantity <= 2" class="warning-icon"><Warning /></el-icon>
+              </span>
               <el-button link size="small" @click="updateQuantity(row, 'increase')">
                 <el-icon><Plus /></el-icon>
               </el-button>
@@ -287,6 +308,145 @@
       </template>
     </el-dialog>
     
+    <!-- 扫码录入对话框 -->
+    <el-dialog v-model="scanDialogVisible" title="扫码录入药品" width="550px" destroy-on-close>
+      <div class="scan-container">
+        <!-- 扫码步骤条 -->
+        <el-steps :active="scanStep" simple>
+          <el-step title="扫描/搜索" />
+          <el-step title="确认信息" />
+          <el-step title="添加到药箱" />
+        </el-steps>
+        
+        <!-- 步骤1: 扫描或搜索 -->
+        <div v-if="scanStep === 0" class="scan-step">
+          <div class="scan-simulation">
+            <div class="scan-area" @click="simulateScan">
+              <el-icon :size="48" color="#409EFF"><Camera /></el-icon>
+              <p>点击模拟扫码</p>
+              <span class="scan-hint">或输入药品名称/批准文号搜索</span>
+            </div>
+          </div>
+          
+          <el-divider>或</el-divider>
+          
+          <el-form>
+            <el-form-item>
+              <el-input
+                v-model="scanSearchQuery"
+                placeholder="输入药品名称搜索"
+                clearable
+                @keyup.enter="searchDrugsForScan"
+              >
+                <template #append>
+                  <el-button @click="searchDrugsForScan">
+                    <el-icon><Search /></el-icon>
+                  </el-button>
+                </template>
+              </el-input>
+            </el-form-item>
+          </el-form>
+          
+          <!-- 搜索结果 -->
+          <div v-if="scanSearchResults.length > 0" class="scan-results">
+            <p class="results-title">搜索结果：</p>
+            <el-scrollbar height="200px">
+              <div
+                v-for="drug in scanSearchResults"
+                :key="drug.id"
+                class="scan-drug-item"
+                @click="selectScannedDrug(drug)"
+              >
+                <el-image
+                  :src="drug.drug_image || '/default-drug.png'"
+                  fit="cover"
+                  style="width: 50px; height: 50px; border-radius: 4px"
+                />
+                <div class="scan-drug-info">
+                  <p class="scan-drug-name">{{ drug.trade_name || drug.drug_name }}</p>
+                  <p class="scan-drug-spec">{{ drug.specification || '暂无规格' }}</p>
+                  <p class="scan-drug-manufacturer">{{ drug.manufacturer_name || '-' }}</p>
+                </div>
+                <el-button type="primary" size="small">选择</el-button>
+              </div>
+            </el-scrollbar>
+          </div>
+          
+          <div v-else-if="scanSearched && scanSearchResults.length === 0" class="scan-empty">
+            <el-empty description="未找到相关药品" />
+          </div>
+        </div>
+        
+        <!-- 步骤2: 确认信息 -->
+        <div v-else-if="scanStep === 1" class="scan-step">
+          <div class="scan-confirm">
+            <el-image
+              :src="scannedDrug.drug_image || '/default-drug.png'"
+              fit="cover"
+              style="width: 100px; height: 100px; border-radius: 8px; margin-bottom: 16px"
+            />
+            <h4>{{ scannedDrug.trade_name || scannedDrug.drug_name }}</h4>
+            <p class="confirm-spec">{{ scannedDrug.specification || '暂无规格' }}</p>
+            <p class="confirm-manufacturer">{{ scannedDrug.manufacturer_name || '-' }}</p>
+            
+            <el-divider />
+            
+            <el-form label-width="100px">
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <el-form-item label="数量">
+                    <el-input-number v-model="scanAddForm.quantity" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="单位">
+                    <el-input v-model="scanAddForm.unit" placeholder="如：片、粒、瓶" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <el-form-item label="生产日期">
+                    <el-date-picker v-model="scanAddForm.production_date" type="date" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="有效期至">
+                    <el-date-picker v-model="scanAddForm.valid_until" type="date" placeholder="选择日期" style="width: 100%" value-format="YYYY-MM-DD" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="批号">
+                <el-input v-model="scanAddForm.batch_number" placeholder="请输入批号" />
+              </el-form-item>
+              <el-form-item label="提醒天数">
+                <el-input-number v-model="scanAddForm.remind_before_days" :min="1" :max="365" style="width: 100%" />
+              </el-form-item>
+            </el-form>
+          </div>
+        </div>
+        
+        <!-- 步骤3: 完成 -->
+        <div v-else-if="scanStep === 2" class="scan-step">
+          <div class="scan-success">
+            <el-icon :size="64" color="#67C23A"><CircleCheck /></el-icon>
+            <h4>添加成功！</h4>
+            <p>药品已成功添加到 {{ selectedCabinet?.name }}</p>
+            <el-button type="primary" @click="closeScanDialog">完成</el-button>
+            <el-button link @click="scanStep = 0">继续添加</el-button>
+          </div>
+        </div>
+      </div>
+      
+      <template #footer v-if="scanStep === 1">
+        <el-button @click="scanStep = 0">上一步</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitScannedDrug">添加到药箱</el-button>
+      </template>
+      <template #footer v-else-if="scanStep === 0">
+        <el-button @click="scanDialogVisible = false">取消</el-button>
+      </template>
+    </el-dialog>
+    
     <!-- 编辑药品对话框 -->
     <el-dialog v-model="editDrugDialogVisible" title="编辑药品信息" width="600px" destroy-on-close>
       <el-form ref="editDrugFormRef" :model="editDrugForm" label-width="100px">
@@ -340,7 +500,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import {
   Plus, Edit, Delete, Box, Check, Warning, CircleClose,
   FirstAidKit, HomeFilled, Suitcase, OfficeBuilding, Folder,
-  Minus
+  Minus, Camera, Search
 } from '@element-plus/icons-vue'
 
 // 统计数据
@@ -348,7 +508,8 @@ const stats = reactive({
   totalDrugs: 0,
   validDrugs: 0,
   expiringSoon: 0,
-  expired: 0
+  expired: 0,
+  lowStock: 0
 })
 
 // 药箱列表
@@ -409,6 +570,110 @@ const editDrugForm = reactive({
   remind_before_days: 7,
   notes: ''
 })
+
+// 扫码录入相关
+const scanDialogVisible = ref(false)
+const scanStep = ref(0)
+const scanSearchQuery = ref('')
+const scanSearchResults = ref<any[]>([])
+const scanSearched = ref(false)
+const scannedDrug = ref<any>(null)
+const scanAddForm = reactive({
+  cabinet: null as number | null,
+  drug: null as number | null,
+  quantity: 1,
+  unit: '',
+  production_date: '',
+  valid_until: '',
+  batch_number: '',
+  remind_before_days: 7,
+  notes: ''
+})
+
+// 显示扫码对话框
+const showScanDialog = () => {
+  if (!selectedCabinet.value) {
+    ElMessage.warning('请先选择一个药箱')
+    return
+  }
+  scanStep.value = 0
+  scanSearchQuery.value = ''
+  scanSearchResults.value = []
+  scanSearched.value = false
+  scannedDrug.value = null
+  scanDialogVisible.value = true
+}
+
+// 模拟扫码
+const simulateScan = () => {
+  ElMessage.info('正在模拟扫码...')
+  setTimeout(() => {
+    // 随机搜索一些药品
+    searchDrugsForScan('感冒')
+    ElMessage.success('扫描成功，请从列表中选择药品')
+  }, 800)
+}
+
+// 搜索药品用于扫码
+const searchDrugsForScan = async (query?: string) => {
+  const searchText = query || scanSearchQuery.value
+  if (!searchText) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+  
+  scanSearched.value = true
+  try {
+    const response = await api.post('/syyb/search_anything/', { text: searchText })
+    const drugs = response.data.results || []
+    scanSearchResults.value = drugs.slice(0, 10) // 最多显示10个结果
+  } catch (error) {
+    console.error('搜索药品失败:', error)
+    ElMessage.error('搜索失败')
+  }
+}
+
+// 选择扫码结果中的药品
+const selectScannedDrug = (drug: any) => {
+  scannedDrug.value = drug
+  scanAddForm.drug = drug.id
+  scanAddForm.cabinet = selectedCabinet.value?.id
+  scanAddForm.quantity = 1
+  scanAddForm.unit = ''
+  scanAddForm.production_date = ''
+  scanAddForm.valid_until = ''
+  scanAddForm.batch_number = ''
+  scanAddForm.remind_before_days = 7
+  scanAddForm.notes = ''
+  scanStep.value = 1
+}
+
+// 提交扫码添加的药品
+const submitScannedDrug = async () => {
+  if (!scanAddForm.drug || !scanAddForm.cabinet) {
+    ElMessage.error('药品信息不完整')
+    return
+  }
+  
+  submitting.value = true
+  try {
+    await api.post('/syyb/cabinet_drugs/', scanAddForm)
+    scanStep.value = 2
+    fetchCabinetDrugs()
+    fetchStats()
+  } catch (error) {
+    console.error('添加失败:', error)
+    ElMessage.error('添加药品失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 关闭扫码对话框
+const closeScanDialog = () => {
+  scanDialogVisible.value = false
+  scanStep.value = 0
+}
 
 const submitting = ref(false)
 
@@ -1019,6 +1284,159 @@ onMounted(() => {
 .expiring-soon {
   color: #E6A23C;
   font-weight: 600;
+}
+
+/* 扫码录入样式 */
+.scan-container {
+  padding: 20px 0;
+}
+
+.scan-step {
+  margin-top: 20px;
+}
+
+.scan-simulation {
+  display: flex;
+  justify-content: center;
+  padding: 30px 0;
+}
+
+.scan-area {
+  width: 200px;
+  height: 200px;
+  border: 2px dashed #409EFF;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f0f9ff;
+}
+
+.scan-area:hover {
+  background: #e6f7ff;
+  transform: scale(1.02);
+}
+
+.scan-area p {
+  margin: 12px 0 4px 0;
+  font-weight: 600;
+  color: #409EFF;
+}
+
+.scan-hint {
+  font-size: 12px;
+  color: #909399;
+}
+
+.scan-results {
+  margin-top: 16px;
+}
+
+.results-title {
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 12px;
+}
+
+.scan-drug-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 8px;
+  border: 1px solid #ebeef5;
+}
+
+.scan-drug-item:hover {
+  background: #f5f7fa;
+  border-color: #409EFF;
+}
+
+.scan-drug-info {
+  flex: 1;
+}
+
+.scan-drug-name {
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 4px 0;
+}
+
+.scan-drug-spec {
+  font-size: 13px;
+  color: #606266;
+  margin: 0 0 2px 0;
+}
+
+.scan-drug-manufacturer {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+}
+
+.scan-confirm {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.scan-confirm h4 {
+  font-size: 18px;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.confirm-spec {
+  color: #606266;
+  margin: 0 0 4px 0;
+}
+
+.confirm-manufacturer {
+  font-size: 13px;
+  color: #909399;
+  margin: 0;
+}
+
+.scan-success {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.scan-success h4 {
+  font-size: 20px;
+  color: #67C23A;
+  margin: 16px 0 8px 0;
+}
+
+.scan-success p {
+  color: #606266;
+  margin: 0 0 24px 0;
+}
+
+.scan-empty {
+  padding: 20px 0;
+}
+
+.quantity.low-stock {
+  color: #F56C6C;
+  font-weight: 600;
+}
+
+.warning-icon {
+  color: #F56C6C;
+  margin-left: 4px;
+  font-size: 14px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .empty-card {

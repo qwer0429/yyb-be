@@ -34,12 +34,12 @@
       </div>
     </el-card>
 
-    <!-- 过期药品警告提示 -->
+    <!-- 过期药品和库存不足警告提示 -->
     <transition name="slide-down">
       <el-alert
-        v-if="stats.expired > 0 || stats.expiringSoon > 0"
+        v-if="stats.expired > 0 || stats.expiringSoon > 0 || stats.lowStock > 0"
         :title="alertTitle"
-        :type="stats.expired > 0 ? 'error' : 'warning'"
+        :type="alertType"
         show-icon
         :closable="false"
         class="expiry-alert"
@@ -49,7 +49,7 @@
           <div class="alert-content">
             <span>{{ alertDescription }}</span>
             <el-button 
-              :type="stats.expired > 0 ? 'danger' : 'warning'" 
+              :type="alertButtonType" 
               size="small"
               plain
               @click.stop="$router.push('/cabinets')"
@@ -169,6 +169,17 @@
             </div>
           </div>
         </el-col>
+        <el-col :xs="12" :sm="6">
+          <div class="stat-item">
+            <div class="stat-item-icon purple">
+              <el-icon :size="24"><Box /></el-icon>
+            </div>
+            <div class="stat-item-content">
+              <div class="stat-value" style="color: #8E44AD;">{{ stats.lowStock }}</div>
+              <div class="stat-label">库存不足</div>
+            </div>
+          </div>
+        </el-col>
       </el-row>
     </el-card>
   </div>
@@ -187,7 +198,8 @@ import {
   TrendCharts,
   CircleCheck,
   Timer,
-  Warning
+  Warning,
+  ShoppingCart
 } from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
@@ -196,7 +208,8 @@ const stats = ref({
   totalDrugs: 0,
   validDrugs: 0,
   expiringSoon: 0,
-  expired: 0
+  expired: 0,
+  lowStock: 0
 })
 
 // 问候语
@@ -207,24 +220,40 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
+// 警告类型
+const alertType = computed(() => {
+  if (stats.value.expired > 0) return 'error'
+  if (stats.value.expiringSoon > 0) return 'warning'
+  return 'info'
+})
+
+const alertButtonType = computed(() => {
+  if (stats.value.expired > 0) return 'danger'
+  if (stats.value.expiringSoon > 0) return 'warning'
+  return 'info'
+})
+
 // 警告标题
 const alertTitle = computed(() => {
   if (stats.value.expired > 0) {
     return `发现 ${stats.value.expired} 个药品已过期`
   } else if (stats.value.expiringSoon > 0) {
     return `有 ${stats.value.expiringSoon} 个药品即将过期`
+  } else if (stats.value.lowStock > 0) {
+    return `有 ${stats.value.lowStock} 个药品库存不足`
   }
   return ''
 })
 
 // 警告描述
 const alertDescription = computed(() => {
-  if (stats.value.expired > 0 && stats.value.expiringSoon > 0) {
-    return `其中 ${stats.value.expired} 个已过期，${stats.value.expiringSoon} 个将在7天内过期`
-  } else if (stats.value.expired > 0) {
-    return '过期药品可能失效或产生有害物质，请及时清理'
-  } else if (stats.value.expiringSoon > 0) {
-    return '这些药品将在7天内过期，请尽快使用'
+  const parts = []
+  if (stats.value.expired > 0) parts.push(`${stats.value.expired} 个已过期`)
+  if (stats.value.expiringSoon > 0) parts.push(`${stats.value.expiringSoon} 个将在7天内过期`)
+  if (stats.value.lowStock > 0) parts.push(`${stats.value.lowStock} 个库存不足`)
+  
+  if (parts.length > 0) {
+    return '其中 ' + parts.join('，') + '，请及时处理'
   }
   return ''
 })
@@ -237,9 +266,25 @@ const fetchStats = async () => {
     stats.value.validDrugs = data.valid_count || 0
     stats.value.expiringSoon = data.expiring_soon_count || 0
     stats.value.expired = data.expired_count || 0
+    
+    // 获取库存不足统计
+    try {
+      const cabinetRes = await api.get('/syyb/cabinets/')
+      const cabinets = cabinetRes.data.results || []
+      let lowStockCount = 0
+      
+      for (const cabinet of cabinets) {
+        const drugsRes = await api.get(`/syyb/cabinets/${cabinet.id}/drugs/`)
+        const drugs = drugsRes.data.results || []
+        lowStockCount += drugs.filter((d: any) => d.quantity <= 2).length
+      }
+      stats.value.lowStock = lowStockCount
+    } catch (e) {
+      console.error('获取库存统计失败:', e)
+    }
   } catch (error) {
-    console.error('获取统计失败:', error)
-  }
+      console.error('获取统计失败:', error)
+    }
 }
 
 onMounted(() => {

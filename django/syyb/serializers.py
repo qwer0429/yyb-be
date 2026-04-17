@@ -7,6 +7,7 @@ from .models import (
 
 class DrugListSerializer(serializers.ModelSerializer):
     """简化版药品列表序列化器，只返回列表展示需要的字段"""
+    type2_drug_id = serializers.IntegerField(source='type2_drug.id', read_only=True, allow_null=True)
     type2_drug_name = serializers.CharField(source='type2_drug.name', read_only=True)
     type1_drug = serializers.CharField(source='type2_drug.type1_drug.name', read_only=True)
     manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
@@ -21,7 +22,7 @@ class DrugListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
             'specification', 'dosage_form', 'medical_insurance',
-            'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
+            'type2_drug_id', 'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
             'manufacturer_abbreviation', 'manufacturer_holder_name', 'manufacturer_holder_id',
             'approval_number', 'approval_date', 'atc_code',
             'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
@@ -40,6 +41,8 @@ class DrugListSerializer(serializers.ModelSerializer):
 class DrugSerializer(serializers.ModelSerializer):
     type1_drug = serializers.SerializerMethodField()
 
+    # 二级分类ID（用于前端筛选）
+    type2_drug_id = serializers.IntegerField(source='type2_drug.id', read_only=True, allow_null=True)
     # 二级分类显示名称及简称
     type2_drug_name = serializers.SerializerMethodField(read_only=True, label="二级分类")
     type2_drug = serializers.PrimaryKeyRelatedField(
@@ -80,7 +83,7 @@ class DrugSerializer(serializers.ModelSerializer):
         model = Drug
         fields = [
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en', 'medical_insurance', 'jd_url', 'category',
-            'type2_drug', 'type2_drug_name', 'type1_drug', 'specification', 'dosage_form', 'administration_route',
+            'type2_drug', 'type2_drug_id', 'type2_drug_name', 'type1_drug', 'specification', 'dosage_form', 'administration_route',
             'manufacturer_holder', 'manufacturer_holder_name', 'manufacturer_holder_abbreviation',
             'manufacturer', 'manufacturer_id', 'manufacturer_name', 'manufacturer_abbreviation', 'active_ingredient',
             'active_ingredient_en', 'approval_number', 'approval_date', 'atc_code', 'market_status',
