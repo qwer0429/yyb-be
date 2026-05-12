@@ -112,6 +112,7 @@ import traceback
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
@@ -772,10 +773,15 @@ def add_drugs_from_excel(request):
                                 drug_data["manufacturer"] = manufacturer_obj
 
                         # 创建或更新药品（不包含图片）
-                        drug, created = Drug.objects.update_or_create(
-                            atc_code=drug_data["atc_code"],
-                            defaults=drug_data,
-                        )
+                        atc_code = drug_data.get("atc_code")
+                        if atc_code:
+                            drug, created = Drug.objects.update_or_create(
+                                atc_code=atc_code,
+                                defaults=drug_data,
+                            )
+                        else:
+                            drug = Drug.objects.create(**drug_data)
+                            created = True
 
                         created_drugs.append(drug.id)
 
@@ -821,6 +827,8 @@ def add_drugs_from_excel(request):
         return JsonResponse({"error": "未上传文件"}, status=400)
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
 def download_import_template(request):
     """
     下载药品导入模板
@@ -863,7 +871,7 @@ def download_import_template(request):
     
     # 设置列宽
     for idx, (field, config) in enumerate(EXCEL_IMPORT_FIELDS.items(), 1):
-        ws.column_dimensions[chr(64 + idx) if idx <= 26 else 'A' + chr(64 + idx - 26)].width = max(15, len(config['label']) + 5)
+        ws.column_dimensions[get_column_letter(idx)].width = max(15, len(config['label']) + 5)
     
     # 创建说明工作表
     ws_info = wb.create_sheet("填写说明")
@@ -1502,10 +1510,14 @@ def batch_import_drugs_simple(request):
                 
                 # 创建或更新
                 with transaction.atomic():
-                    Drug.objects.update_or_create(
-                        atc_code=drug_data.get("atc_code") or f"TEMP_{idx}",
-                        defaults=drug_data
-                    )
+                    atc_code = drug_data.get("atc_code")
+                    if atc_code:
+                        Drug.objects.update_or_create(
+                            atc_code=atc_code,
+                            defaults=drug_data
+                        )
+                    else:
+                        Drug.objects.create(**drug_data)
                     created_count += 1
                     
             except Exception as e:
