@@ -11,6 +11,8 @@ interface User {
   name?: string
   mobile?: string
   is_admin: boolean
+  permissions?: string[]
+  accessible_systems?: string[]
 }
 
 interface TokenResponse {
@@ -29,7 +31,28 @@ export const useAuthStore = defineStore('auth', () => {
   // Getters
   const isAuthenticated = computed(() => !!accessToken.value)
   const username = computed(() => user.value?.username || '')
-  const isRegularUser = computed(() => user.value?.is_admin === false)
+  const isAdmin = computed(() => user.value?.is_admin || false)
+  const isRegularUser = computed(() => !user.value?.is_admin)
+  
+  // 用户权限相关
+  const permissions = computed(() => user.value?.permissions || [])
+  const accessibleSystems = computed(() => {
+    let systems = user.value?.accessible_systems || []
+    // 兼容旧数据：所有已登录用户默认拥有 user_portal
+    if (!systems.includes('user_portal')) {
+      systems = [...systems, 'user_portal']
+    }
+    // 兼容旧数据：管理员额外拥有 admin_system
+    if (user.value?.is_admin && !systems.includes('admin_system')) {
+      systems = [...systems, 'admin_system']
+    }
+    return systems.length > 0 ? systems : ['user_portal']
+  })
+  
+  // 检查是否有指定权限
+  const hasPermission = (permission: string) => {
+    return accessibleSystems.value.includes(permission)
+  }
 
   // Actions
   const register = async (userData: {
@@ -80,12 +103,6 @@ export const useAuthStore = defineStore('auth', () => {
         username,
         password: encryptPassword(password)
       })
-      
-      // 检查是否为管理员，管理员不能登录用户端
-      if (response.data.user.is_admin) {
-        ElMessage.error('管理员请使用后台管理系统登录')
-        return false
-      }
       
       accessToken.value = response.data.access
       refreshToken.value = response.data.refresh
@@ -159,7 +176,11 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     isAuthenticated,
     username,
+    isAdmin,
     isRegularUser,
+    permissions,
+    accessibleSystems,
+    hasPermission,
     register,
     login,
     logout,

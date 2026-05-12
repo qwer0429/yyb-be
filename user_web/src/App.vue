@@ -19,7 +19,7 @@
               <el-icon :size="28"><FirstAidKit /></el-icon>
             </div>
             <span v-show="!isCollapse" class="logo-text">医药宝</span>
-            <div v-show="!isCollapse" class="logo-badge">用户端</div>
+            <div v-show="!isCollapse" class="logo-badge">{{ userRoleBadge }}</div>
           </div>
           
           <el-menu
@@ -29,71 +29,25 @@
             router
             class="sidebar-menu"
           >
-            <el-menu-item index="/" class="menu-item">
-              <div class="menu-icon-wrapper">
-                <el-icon><HomeFilled /></el-icon>
-              </div>
-              <template #title>
-                <span class="menu-title">首页</span>
-                <div class="menu-arrow">
-                  <el-icon><ArrowRight /></el-icon>
+            <template v-for="item in visibleMenuItems" :key="item.index">
+              <el-menu-item :index="item.index" class="menu-item">
+                <div class="menu-icon-wrapper" :class="item.colorClass">
+                  <el-icon><component :is="item.icon" /></el-icon>
                 </div>
-              </template>
-            </el-menu-item>
-            
-            <el-menu-item index="/drugs" class="menu-item">
-              <div class="menu-icon-wrapper blue">
-                <el-icon><FirstAidKit /></el-icon>
-              </div>
-              <template #title>
-                <span class="menu-title">药品浏览</span>
-                <div class="menu-arrow">
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-              </template>
-            </el-menu-item>
-            
-            <el-menu-item index="/categories" class="menu-item">
-              <div class="menu-icon-wrapper green">
-                <el-icon><Collection /></el-icon>
-              </div>
-              <template #title>
-                <span class="menu-title">分类浏览</span>
-                <div class="menu-arrow">
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-              </template>
-            </el-menu-item>
-            
-            <el-menu-item index="/cabinets" class="menu-item">
-              <div class="menu-icon-wrapper orange">
-                <el-icon><Box /></el-icon>
-              </div>
-              <template #title>
-                <span class="menu-title">我的药箱</span>
-                <div class="menu-arrow">
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-              </template>
-            </el-menu-item>
-            
-            <el-menu-item index="/smart-doctor" class="menu-item">
-              <div class="menu-icon-wrapper purple">
-                <el-icon><FirstAidKit /></el-icon>
-              </div>
-              <template #title>
-                <span class="menu-title">智能医生</span>
-                <div class="menu-arrow">
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-              </template>
-            </el-menu-item>
+                <template #title>
+                  <span class="menu-title">{{ item.title }}</span>
+                  <div class="menu-arrow">
+                    <el-icon><ArrowRight /></el-icon>
+                  </div>
+                </template>
+              </el-menu-item>
+            </template>
           </el-menu>
           
           <!-- 侧边栏底部 -->
           <div class="sidebar-footer" v-show="!isCollapse">
             <div class="footer-line"></div>
-            <p class="footer-text">医药宝用户端系统</p>
+            <p class="footer-text">医药宝{{ userRoleText }}</p>
           </div>
         </el-aside>
         
@@ -136,7 +90,7 @@
                   </div>
                   <div class="user-meta" v-if="!isMobile">
                     <span class="user-name">{{ authStore.user?.name || authStore.username || '用户' }}</span>
-                    <span class="user-role">普通用户</span>
+                    <span class="user-role">{{ userRoleText }}</span>
                   </div>
                   <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
                 </div>
@@ -146,7 +100,7 @@
                       <el-avatar :size="48" :icon="UserFilled" />
                       <div class="dropdown-user-info">
                         <span class="dropdown-user-name">{{ authStore.user?.name || authStore.username || '用户' }}</span>
-                        <span class="dropdown-user-role">普通用户</span>
+                        <span class="dropdown-user-role">{{ userRoleText }}</span>
                       </div>
                     </div>
                     <el-dropdown-item divided command="profile">
@@ -184,6 +138,22 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { ElMessageBox } from 'element-plus'
+import {
+  HomeFilled,
+  FirstAidKit,
+  Collection,
+  Box,
+  ArrowRight,
+  Fold,
+  Expand,
+  Clock,
+  UserFilled,
+  ArrowDown,
+  User,
+  SwitchButton,
+  Management
+} from '@element-plus/icons-vue'
+import type { Component } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -193,6 +163,40 @@ const isCollapse = ref(false)
 const isMobile = ref(false)
 const currentTime = ref('')
 let timer: number | null = null
+
+// 菜单配置
+interface MenuItem {
+  index: string
+  title: string
+  icon: Component
+  colorClass: string
+  permission: string
+}
+
+const menuItems: MenuItem[] = [
+  { index: '/', title: '首页', icon: HomeFilled, colorClass: '', permission: 'user_portal' },
+  { index: '/drugs', title: '药品浏览', icon: FirstAidKit, colorClass: 'blue', permission: 'user_portal' },
+  { index: '/categories', title: '分类浏览', icon: Collection, colorClass: 'green', permission: 'user_portal' },
+  { index: '/cabinets', title: '我的药箱', icon: Box, colorClass: 'orange', permission: 'user_portal' },
+  { index: '/smart-doctor', title: '智能医生', icon: FirstAidKit, colorClass: 'purple', permission: 'smart_doctor' },
+  { index: '/system/admin', title: '后台管理', icon: Management, colorClass: 'red', permission: 'admin_system' },
+]
+
+// 根据权限过滤可见菜单
+const visibleMenuItems = computed(() => {
+  return menuItems.filter(item => authStore.hasPermission(item.permission))
+})
+
+// 用户角色显示
+const userRoleText = computed(() => {
+  if (authStore.isAdmin) return '管理员'
+  return '普通用户'
+})
+
+const userRoleBadge = computed(() => {
+  if (authStore.isAdmin) return '管理端'
+  return '用户端'
+})
 
 // 检测移动端
 const checkMobile = () => {
@@ -234,7 +238,8 @@ const pageTitle = computed(() => {
     '/drugs': '药品浏览',
     '/categories': '分类浏览',
     '/cabinets': '我的药箱',
-    '/smart-doctor': '智能医生'
+    '/smart-doctor': '智能医生',
+    '/system/admin': '后台管理'
   }
   return titles[route.path] || ''
 })
@@ -432,7 +437,9 @@ html, body, #app {
 
 .menu-icon-wrapper.blue,
 .menu-icon-wrapper.green,
-.menu-icon-wrapper.orange {
+.menu-icon-wrapper.orange,
+.menu-icon-wrapper.purple,
+.menu-icon-wrapper.red {
   background: none !important;
 }
 

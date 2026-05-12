@@ -31,5 +31,27 @@ class User(AbstractUser):
     # 角色字段：True=管理员，False=普通用户
     is_admin = models.BooleanField(default=False, verbose_name='是否管理员')
 
+    # 权限字段：存储用户可访问的系统列表
+    # 例如：["user_portal", "admin_system", "smart_doctor"]
+    permissions = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='可访问系统权限'
+    )
+
+    def get_accessible_systems(self):
+        """
+        获取用户可访问的系统列表
+        默认普通用户可访问 user_portal
+        管理员额外可访问 admin_system
+        """
+        systems = set(self.permissions) if self.permissions else set()
+        systems.add('user_portal')  # 所有用户默认可以访问用户端
+        
+        if self.is_admin or self.is_superuser:
+            systems.add('admin_system')  # 管理员可访问后台系统
+            
+        return list(systems)
+
 
 

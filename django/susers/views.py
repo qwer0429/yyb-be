@@ -112,6 +112,8 @@ class UserRegisterView(APIView):
                     'name': user.name,
                     'mobile': user.mobile,
                     'is_admin': user.is_admin,
+                    'permissions': user.permissions or [],
+                    'accessible_systems': user.get_accessible_systems(),
                 }
             }, status=status.HTTP_201_CREATED)
             
@@ -341,7 +343,11 @@ class CurrentUserView(APIView):
     def get(self, request):
         """获取当前用户信息"""
         serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        data = serializer.data
+        # 附加权限信息
+        data['permissions'] = request.user.permissions or []
+        data['accessible_systems'] = request.user.get_accessible_systems()
+        return Response(data)
     
     def put(self, request):
         """更新当前用户信息"""

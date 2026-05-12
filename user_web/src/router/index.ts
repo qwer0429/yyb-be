@@ -19,31 +19,37 @@ const routes = [
     path: '/',
     name: 'home',
     component: () => import('../views/HomeView.vue'),
-    meta: { title: '首页' }
+    meta: { title: '首页', permission: 'user_portal' }
   },
   {
     path: '/drugs',
     name: 'drugs',
     component: () => import('../views/DrugBrowseView.vue'),
-    meta: { title: '药品浏览' }
+    meta: { title: '药品浏览', permission: 'user_portal' }
   },
   {
     path: '/categories',
     name: 'categories',
     component: () => import('../views/CategoryBrowseView.vue'),
-    meta: { title: '分类浏览' }
+    meta: { title: '分类浏览', permission: 'user_portal' }
   },
   {
     path: '/cabinets',
     name: 'cabinets',
     component: () => import('../views/MedicineCabinetView.vue'),
-    meta: { title: '我的药箱' }
+    meta: { title: '我的药箱', permission: 'user_portal' }
   },
   {
     path: '/smart-doctor',
     name: 'smart-doctor',
     component: () => import('../views/SmartDoctorView.vue'),
-    meta: { title: '智能医生' }
+    meta: { title: '智能医生', permission: 'smart_doctor' }
+  },
+  {
+    path: '/system/:key',
+    name: 'system-portal',
+    component: () => import('../views/SystemPortalView.vue'),
+    meta: { title: '系统门户' }
   },
   // 404 页面
   {
@@ -84,6 +90,14 @@ router.beforeEach((to, from, next) => {
   if (!authStore.isAuthenticated) {
     ElMessage.warning('请先登录')
     next('/login')
+    return
+  }
+  
+  // 权限检查：如果路由配置了 permission，检查用户是否有权限
+  const requiredPermission = to.meta.permission as string | undefined
+  if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
+    ElMessage.warning('您没有权限访问该页面')
+    next('/')
     return
   }
   

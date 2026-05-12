@@ -64,11 +64,36 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - 医药宝` : '医药宝管理系统'
+  
+  // 检查 URL 中是否有 portal_token 参数（来自 iframe 门户的单点登录）
+  const urlParams = new URLSearchParams(window.location.search)
+  const portalToken = urlParams.get('portal_token')
+  const fromPortal = urlParams.get('from') === 'portal'
+  
+  // 如果 URL 中有 portal_token 且当前未登录，尝试自动登录
+  if (portalToken && !authStore.isAuthenticated) {
+    const success = await authStore.autoLoginFromToken(portalToken)
+    if (success) {
+      // 清除 URL 中的 token 参数，防止刷新时重复处理
+      const newUrl = window.location.pathname + window.location.hash
+      window.history.replaceState({}, '', newUrl)
+      
+      // 如果是从门户跳转来的，显示欢迎消息
+      if (fromPortal) {
+        ElMessage.success('已通过门户单点登录')
+      }
+      
+      next()
+      return
+    } else {
+      // 自动登录失败，继续正常流程
+    }
+  }
   
   // 公开页面直接放行
   if (to.meta.public) {

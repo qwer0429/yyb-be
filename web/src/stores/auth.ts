@@ -12,6 +12,8 @@ interface User {
   mobile?: string
   is_admin: boolean
   is_staff: boolean
+  permissions?: string[]
+  accessible_systems?: string[]
 }
 
 interface TokenResponse {
@@ -32,6 +34,14 @@ export const useAuthStore = defineStore('auth', () => {
   const username = computed(() => user.value?.username || '')
   const isAdmin = computed(() => user.value?.is_admin || false)
   const isRegularUser = computed(() => !user.value?.is_admin)
+  
+  // 权限相关
+  const permissions = computed(() => user.value?.permissions || [])
+  const accessibleSystems = computed(() => user.value?.accessible_systems || [])
+  
+  const hasPermission = (permission: string) => {
+    return accessibleSystems.value.includes(permission)
+  }
 
   // Actions
   const login = async (username: string, password: string) => {
@@ -63,6 +73,48 @@ export const useAuthStore = defineStore('auth', () => {
       return false
     } finally {
       isLoading.value = false
+    }
+  }
+
+  // 通过 token 自动登录（用于 iframe 门户单点登录）
+  const autoLoginFromToken = async (token: string) => {
+    try {
+      // 先设置 token，以便验证请求能带上
+      accessToken.value = token
+      localStorage.setItem('access_token', token)
+      
+      // 调用用户信息接口验证 token 有效性
+      const response = await api.get('/api/me/')
+      
+      if (response.data) {
+        const userData: User = {
+          id: response.data.id,
+          username: response.data.username,
+          email: response.data.email,
+          name: response.data.name,
+          mobile: response.data.mobile,
+          is_admin: response.data.is_admin,
+          is_staff: response.data.is_staff,
+          permissions: response.data.permissions || [],
+          accessible_systems: response.data.accessible_systems || [],
+        }
+        user.value = userData
+        localStorage.setItem('user_info', JSON.stringify(userData))
+        
+        // 检查是否有后台管理权限
+        if (!userData.is_admin && !userData.is_staff) {
+          ElMessage.error('您没有权限访问后台管理系统')
+          logout()
+          return false
+        }
+        
+        return true
+      }
+      return false
+    } catch (error: any) {
+      console.error('Token 自动登录失败:', error)
+      logout()
+      return false
     }
   }
 
@@ -119,7 +171,11 @@ export const useAuthStore = defineStore('auth', () => {
     username,
     isAdmin,
     isRegularUser,
+    permissions,
+    accessibleSystems,
+    hasPermission,
     login,
+    autoLoginFromToken,
     logout,
     refreshAccessToken,
     initAuth,

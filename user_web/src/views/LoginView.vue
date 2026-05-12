@@ -115,7 +115,16 @@ const handleLogin = async () => {
     if (valid) {
       const success = await authStore.login(loginForm.username, loginForm.password)
       if (success) {
-        router.push('/')
+        // 如果是管理员，直接跳转到后台管理系统（单点登录）
+        if (authStore.isAdmin) {
+          const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://192.168.50.82:5173'
+          const token = authStore.accessToken
+          // 构造带 token 的后台地址，后台会自动完成登录
+          window.location.href = `${adminUrl}?portal_token=${token}&from=portal`
+        } else {
+          // 普通用户进入用户端首页
+          router.push('/')
+        }
       }
     }
   })

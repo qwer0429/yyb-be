@@ -20,7 +20,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
-from susers.views import CustomTokenObtainPairView, UserRegisterView
+from susers.views import CustomTokenObtainPairView, UserRegisterView, CurrentUserView, ChangePasswordView
 import simpleserver.settings as settings
 from django.conf.urls.static import static
 #from sblogmd import urls as sblogmd_urls
@@ -42,6 +42,10 @@ urlpatterns = [
     path('api/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # 验证Token的有效性
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    # 当前用户信息
+    path('api/me/', CurrentUserView.as_view(), name='current-user'),
+    # 修改密码
+    path('api/change_password/', ChangePasswordView.as_view(), name='change-password'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

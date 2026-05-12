@@ -15,23 +15,23 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://192.168.50.82:8000',
         changeOrigin: true,
       },
       '/syyb': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://192.168.50.82:8000',
         changeOrigin: true,
       },
       '/susers': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://192.168.50.82:8000',
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://192.168.50.82:8000',
         changeOrigin: true,
       },
       '/users': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://192.168.50.82:8000',
         changeOrigin: true,
         rewrite: (path) => '/susers' + path
       }
