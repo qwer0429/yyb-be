@@ -17,8 +17,14 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore();
-    if (authStore.accessToken) {
-      config.headers.Authorization = `Bearer ${authStore.accessToken}`;
+    // 优先从 store 读取，若为空则从 localStorage 兜底
+    // 防止并发请求时 store 还未同步到最新 token
+    let token = authStore.accessToken;
+    if (!token) {
+      token = localStorage.getItem('access_token') || '';
+    }
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -45,9 +51,11 @@ api.interceptors.response.use(
         }
         return api(originalRequest);
       } catch (refreshError) {
-        // 刷新失败，退出登录
+        // 刷新失败，退出登录并跳转到用户端登录页（强制未登录状态）
         authStore.logout();
-        window.location.href = '/login';
+        const userWebUrl = import.meta.env.VITE_USER_WEB_URL
+        const logoutUrl = userWebUrl ? `${userWebUrl}/login?from=admin_logout` : '/login?from=admin_logout'
+        window.location.href = logoutUrl
         return Promise.reject(refreshError);
       }
     }

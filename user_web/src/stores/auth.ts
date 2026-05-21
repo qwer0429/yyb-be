@@ -38,9 +38,12 @@ export const useAuthStore = defineStore('auth', () => {
   const permissions = computed(() => user.value?.permissions || [])
   const accessibleSystems = computed(() => {
     let systems = user.value?.accessible_systems || []
-    // 兼容旧数据：所有已登录用户默认拥有 user_portal
+    // 兼容旧数据：所有已登录用户默认拥有 user_portal 和 smart_doctor
     if (!systems.includes('user_portal')) {
       systems = [...systems, 'user_portal']
+    }
+    if (!systems.includes('smart_doctor')) {
+      systems = [...systems, 'smart_doctor']
     }
     // 兼容旧数据：管理员额外拥有 admin_system
     if (user.value?.is_admin && !systems.includes('admin_system')) {
@@ -138,6 +141,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const refreshAccessToken = async () => {
+    if (!refreshToken.value) {
+      logout()
+      throw new Error('Refresh token 不存在，请重新登录')
+    }
     try {
       const response = await api.post<TokenResponse>('/api/refresh/', {
         refresh: refreshToken.value
@@ -161,11 +168,31 @@ export const useAuthStore = defineStore('auth', () => {
     ElMessage.success('已退出登录')
   }
 
+  // 解析 JWT 的 exp 字段，判断 token 是否过期
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.exp * 1000 < Date.now()
+    } catch {
+      return true
+    }
+  }
+
   const initAuth = () => {
     const token = localStorage.getItem('access_token')
-    if (token) {
+    const refresh = localStorage.getItem('refresh_token')
+
+    if (token && !isTokenExpired(token)) {
       accessToken.value = token
+      if (refresh) refreshToken.value = refresh
       fetchUserInfo()
+    } else if (refresh && !isTokenExpired(refresh)) {
+      // access token 过期但 refresh token 仍有效，保留状态让后续请求触发刷新
+      accessToken.value = token || ''
+      refreshToken.value = refresh
+    } else {
+      // access token 和 refresh token 都过期或不存在，彻底清理
+      logout()
     }
   }
 

@@ -76,7 +76,9 @@ SIMPLE_JWT = {
     # token有效时长
     'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=3),
     # token刷新后的有效时间
-    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=30),
+    # 允许在刷新后继续使用一段时间的旧 token（缓冲期）
+    'LEEWAY': 60,
 }
 
 # Application definition

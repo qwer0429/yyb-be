@@ -83,10 +83,10 @@ router.beforeEach(async (to, from, next) => {
       const newUrl = window.location.pathname + window.location.hash
       window.history.replaceState({}, '', newUrl)
       
-      // 如果是从门户跳转来的，显示欢迎消息
-      if (fromPortal) {
-        ElMessage.success('已通过门户单点登录')
-      }
+      // 如果是从门户跳转来的，静默处理（不显示提示）
+      // if (fromPortal) {
+      //   ElMessage.success('已通过门户单点登录')
+      // }
       
       next()
       return

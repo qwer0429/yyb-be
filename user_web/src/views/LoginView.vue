@@ -11,7 +11,7 @@
           <el-icon :size="48" class="logo-icon"><FirstAidKit /></el-icon>
         </div>
         <h1>医药宝</h1>
-        <p class="subtitle">用户端系统</p>
+        <!-- <p class="subtitle">用户端系统</p> -->
       </div>
       
       <el-form

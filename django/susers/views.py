@@ -72,9 +72,17 @@ class UserRegisterView(APIView):
             logger.error(f'密码解密失败: {str(e)}')
             return Response({'error': '密码格式错误，请重新输入'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # 验证密码长度
-        if len(password) < 6:
-            return Response({'error': '密码长度至少为6位'}, status=status.HTTP_400_BAD_REQUEST)
+        # 强密码校验
+        if len(password) < 8 or len(password) > 20:
+            return Response({'error': '密码长度需在8-20位之间'}, status=status.HTTP_400_BAD_REQUEST)
+        if not any(c.isupper() for c in password):
+            return Response({'error': '密码需包含至少一个大写字母'}, status=status.HTTP_400_BAD_REQUEST)
+        if not any(c.islower() for c in password):
+            return Response({'error': '密码需包含至少一个小写字母'}, status=status.HTTP_400_BAD_REQUEST)
+        if not any(c.isdigit() for c in password):
+            return Response({'error': '密码需包含至少一个数字'}, status=status.HTTP_400_BAD_REQUEST)
+        if not any(c in '!@#$%^&*(),.?":{}|<>_+-=[];\'/\\' for c in password):
+            return Response({'error': '密码需包含至少一个特殊字符'}, status=status.HTTP_400_BAD_REQUEST)
         
         # 验证两次密码是否一致
         if password != password_confirm:
@@ -378,10 +386,30 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # 验证新密码
-        if len(new_password) < 6:
+        # 强密码校验
+        if len(new_password) < 8 or len(new_password) > 20:
             return Response(
-                {'error': '新密码长度至少为6位'},
+                {'error': '新密码长度需在8-20位之间'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not any(c.isupper() for c in new_password):
+            return Response(
+                {'error': '新密码需包含至少一个大写字母'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not any(c.islower() for c in new_password):
+            return Response(
+                {'error': '新密码需包含至少一个小写字母'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not any(c.isdigit() for c in new_password):
+            return Response(
+                {'error': '新密码需包含至少一个数字'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not any(c in '!@#$%^&*(),.?":{}|<>_+-=[];\'/\\' for c in new_password):
+            return Response(
+                {'error': '新密码需包含至少一个特殊字符'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

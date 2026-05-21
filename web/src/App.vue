@@ -175,7 +175,10 @@ const handleCommand = (command: string) => {
         type: 'warning'
       }).then(() => {
         authStore.logout();
-        router.push('/login');
+        // 退出后跳转到用户端登录页，带上 from=admin_logout 标记强制用户端进入未登录状态
+        const userWebUrl = import.meta.env.VITE_USER_WEB_URL
+        const logoutUrl = userWebUrl ? `${userWebUrl}/login?from=admin_logout` : '/login?from=admin_logout'
+        window.location.href = logoutUrl
       });
       break;
   }

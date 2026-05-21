@@ -70,6 +70,9 @@
             clearable
             class="animated-input"
           />
+          <div class="password-hint">
+            <p>密码要求：8-20位，包含大小写字母、数字和特殊字符</p>
+          </div>
         </el-form-item>
         
         <el-form-item prop="password_confirm">
@@ -140,6 +143,35 @@ const registerForm = reactive({
   password_confirm: ''
 })
 
+// 自定义验证：强密码规则
+const validateStrongPassword = (rule: any, value: any, callback: any) => {
+  if (value === '') {
+    callback(new Error('请输入密码'))
+    return
+  }
+  if (value.length < 8 || value.length > 20) {
+    callback(new Error('密码长度需在 8-20 位之间'))
+    return
+  }
+  if (!/[A-Z]/.test(value)) {
+    callback(new Error('密码需包含至少一个大写字母'))
+    return
+  }
+  if (!/[a-z]/.test(value)) {
+    callback(new Error('密码需包含至少一个小写字母'))
+    return
+  }
+  if (!/\d/.test(value)) {
+    callback(new Error('密码需包含至少一个数字'))
+    return
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>_+\-=\[\];'\\/]/.test(value)) {
+    callback(new Error('密码需包含至少一个特殊字符'))
+    return
+  }
+  callback()
+}
+
 // 自定义验证：确认密码
 const validatePassConfirm = (rule: any, value: any, callback: any) => {
   if (value === '') {
@@ -178,8 +210,8 @@ const registerRules: FormRules = {
     { validator: validateMobile, trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
+    { required: true, trigger: 'blur' },
+    { validator: validateStrongPassword, trigger: 'blur' }
   ],
   password_confirm: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -369,6 +401,17 @@ const handleRegister = async () => {
 
 .register-form {
   margin-top: 24px;
+}
+
+.password-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.password-hint p {
+  margin: 0;
 }
 
 .animated-input :deep(.el-input__wrapper) {

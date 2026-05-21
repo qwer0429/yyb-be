@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# 开发环境
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 日志和临时文件
+log/
+*.pid
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# 媒体文件（如果由外部挂载，不需要打包进镜像）
+# media/
+
+# 其他
+.history/
+*.md
