@@ -68,14 +68,13 @@
         <!-- 热门标记 -->
         <div v-if="drug.is_hot" class="hot-badge">热</div>
         
-        <!-- 药品图片（仅展示） -->
+        <!-- 药品图片（仅展示，无预览） -->
         <div class="drug-image-wrapper" @click.stop>
           <el-image
             :src="drug.drug_image || '/default-drug.png'"
             fit="cover"
             class="drug-image"
-            :preview-src-list="drug.drug_image ? [drug.drug_image] : []"
-            preview-teleported
+            :preview-src-list="[]"
           >
             <template #error>
               <div class="image-placeholder">
@@ -84,11 +83,6 @@
               </div>
             </template>
           </el-image>
-          <!-- 悬浮提示 -->
-          <div v-if="drug.drug_image" class="image-upload-overlay">
-            <el-icon :size="24"><View /></el-icon>
-            <span>查看大图</span>
-          </div>
         </div>
         
         <!-- 药品信息 -->
@@ -236,6 +230,26 @@
           </el-col>
         </el-row>
         
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="用药途径" prop="administration_route">
+              <el-input v-model="drugForm.administration_route" placeholder="如：口服、注射" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="二级分类" prop="type2_drug">
+              <el-select v-model="drugForm.type2_drug" placeholder="选择二级分类" filterable clearable style="width: 100%">
+                <el-option
+                  v-for="item in type2DrugOptions"
+                  :key="item.id"
+                  :label="`${item.type1_name} / ${item.name}`"
+                  :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
         <el-form-item label="生产厂商" prop="manufacturer">
           <!-- 编辑时显示当前厂商名称和更换按钮 -->
           <div v-if="isEdit && drugForm.manufacturer" class="manufacturer-display">
@@ -262,9 +276,90 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="批准文号" prop="approval_number">
-          <el-input v-model="drugForm.approval_number" placeholder="请输入批准文号" />
+        <el-form-item label="上市许可持有人" prop="manufacturer_holder">
+          <el-select v-model="drugForm.manufacturer_holder" placeholder="选择上市许可持有人" filterable clearable style="width: 100%">
+            <el-option
+              v-for="item in manufacturerHolderOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
         </el-form-item>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="批准文号" prop="approval_number">
+              <el-input v-model="drugForm.approval_number" placeholder="请输入批准文号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="批准日期" prop="approval_date">
+              <el-date-picker
+                v-model="drugForm.approval_date"
+                type="date"
+                placeholder="选择批准日期"
+                style="width: 100%"
+                value-format="YYYY-MM-DD"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="ATC编码" prop="atc_code">
+              <el-input v-model="drugForm.atc_code" placeholder="请输入ATC编码" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="医保类型" prop="medical_insurance">
+              <el-select v-model="drugForm.medical_insurance" placeholder="选择医保类型" clearable style="width: 100%">
+                <el-option
+                  v-for="item in insuranceOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="活性成分" prop="active_ingredient">
+              <el-input v-model="drugForm.active_ingredient" placeholder="请输入活性成分" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="活性成分（英文）" prop="active_ingredient_en">
+              <el-input v-model="drugForm.active_ingredient_en" placeholder="请输入英文成分名" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="上市状态" prop="market_status">
+              <el-select v-model="drugForm.market_status" placeholder="选择上市状态" clearable style="width: 100%">
+                <el-option
+                  v-for="item in marketStatusOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="标记">
+              <div style="display: flex; gap: 20px; align-items: center; height: 32px;">
+                <el-checkbox v-model="drugForm.is_hot">热门</el-checkbox>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
         
         <el-form-item label="适用症状" prop="indications">
           <el-input 
@@ -336,7 +431,7 @@
         <el-descriptions :column="2" border class="detail-descriptions">
           <el-descriptions-item label="规格">{{ currentDrug.specification || '-' }}</el-descriptions-item>
           <el-descriptions-item label="剂型">{{ currentDrug.dosage_form || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="给药途径">{{ currentDrug.administration_route || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="用药途径">{{ currentDrug.administration_route || '-' }}</el-descriptions-item>
           <el-descriptions-item label="批准文号">{{ currentDrug.approval_number || '-' }}</el-descriptions-item>
           <el-descriptions-item label="批准日期">{{ currentDrug.approval_date || '-' }}</el-descriptions-item>
           <el-descriptions-item label="ATC编码">{{ currentDrug.atc_code || '-' }}</el-descriptions-item>
@@ -530,6 +625,24 @@ const categoryOptions = ref([]);
 
 // 厂商选项
 const manufacturerOptions = ref<any[]>([]);
+// 上市许可持有人选项
+const manufacturerHolderOptions = ref<any[]>([]);
+// 二级分类选项（扁平化列表）
+const type2DrugOptions = ref<any[]>([]);
+
+// 医保类型选项
+const insuranceOptions = [
+  { label: '甲类', value: '甲类' },
+  { label: '乙类', value: '乙类' },
+  { label: '非医保', value: '非医保' }
+];
+
+// 上市状态选项
+const marketStatusOptions = [
+  { label: '在售', value: '在售' },
+  { label: '停产', value: '停产' },
+  { label: '退市', value: '退市' }
+];
 
 // 新增/编辑对话框
 const dialogVisible = ref(false);
@@ -543,8 +656,19 @@ const drugForm = reactive({
   trade_name: '',
   specification: '',
   dosage_form: '',
+  administration_route: '',
   manufacturer: null as number | null,
+  manufacturer_holder: null as number | null,
+  type2_drug: null as number | null,
   approval_number: '',
+  approval_date: '' as string | null,
+  atc_code: '',
+  active_ingredient: '',
+  active_ingredient_en: '',
+  medical_insurance: '',
+  market_status: '',
+  is_hot: false,
+  family_use: '',
   description: '',
   indications: '',
   drug_image: ''
@@ -660,6 +784,36 @@ const fetchManufacturers = async () => {
     manufacturerOptions.value = response.data.results || [];
   } catch (error) {
     console.error('获取厂商列表失败:', error);
+  }
+};
+
+// 获取上市许可持有人列表
+const fetchManufacturerHolders = async () => {
+  try {
+    const response = await api.get('/syyb/manufacturerholder/');
+    manufacturerHolderOptions.value = response.data.results || [];
+  } catch (error) {
+    console.error('获取上市许可持有人列表失败:', error);
+  }
+};
+
+// 直接获取二级分类列表（更可靠）
+const fetchType2Drugs = async () => {
+  try {
+    const response = await api.get('/syyb/type2drug/');
+    const results = response.data.results || [];
+    // 获取一级分类名称映射
+    const type1Map: Record<number, string> = {};
+    categoryOptions.value.forEach((t1: any) => {
+      type1Map[t1.value || t1.id] = t1.label || t1.name;
+    });
+    type2DrugOptions.value = results.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      type1_name: type1Map[item.type1_drug] || ''
+    }));
+  } catch (error) {
+    console.error('获取二级分类失败:', error);
   }
 };
 
@@ -837,6 +991,14 @@ const handleEdit = (row: any) => {
   if (row.manufacturer_id) {
     drugForm.manufacturer = row.manufacturer_id;
   }
+  // 使用 manufacturer_holder_id 作为下拉框的值
+  if (row.manufacturer_holder_id) {
+    drugForm.manufacturer_holder = row.manufacturer_holder_id;
+  }
+  // 使用 type2_drug_id 作为下拉框的值
+  if (row.type2_drug_id) {
+    drugForm.type2_drug = row.type2_drug_id;
+  }
   // 重置图片编辑状态
   editImageFile.value = null;
   editImagePreview.value = '';
@@ -950,10 +1112,22 @@ const resetForm = () => {
   drugForm.trade_name = '';
   drugForm.specification = '';
   drugForm.dosage_form = '';
+  drugForm.administration_route = '';
   drugForm.manufacturer = null;
+  drugForm.manufacturer_holder = null;
+  drugForm.type2_drug = null;
   drugForm.approval_number = '';
+  drugForm.approval_date = null;
+  drugForm.atc_code = '';
+  drugForm.active_ingredient = '';
+  drugForm.active_ingredient_en = '';
+  drugForm.medical_insurance = '';
+  drugForm.market_status = '';
+  drugForm.is_hot = false;
+  drugForm.family_use = '';
   drugForm.description = '';
   drugForm.indications = '';
+  drugForm.drug_image = '';
   showManufacturerSelect.value = false;
 };
 
@@ -1301,6 +1475,8 @@ onMounted(() => {
   fetchDrugs();
   fetchCategories();
   fetchManufacturers();
+  fetchManufacturerHolders();
+  fetchType2Drugs();
 });
 
 // 组件卸载时清理定时器
@@ -1395,11 +1571,6 @@ onUnmounted(() => {
   justify-content: center;
   overflow: hidden;
   position: relative;
-  cursor: pointer;
-}
-
-.drug-image-wrapper:hover .image-upload-overlay {
-  opacity: 1;
 }
 
 .drug-image {
@@ -1422,27 +1593,6 @@ onUnmounted(() => {
 .image-placeholder .upload-hint {
   font-size: 12px;
   color: #909399;
-}
-
-.image-upload-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  opacity: 0;
-  transition: opacity 0.3s;
-  gap: 8px;
-}
-
-.image-upload-overlay span {
-  font-size: 14px;
 }
 
 .drug-info {

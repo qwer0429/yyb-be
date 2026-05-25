@@ -137,6 +137,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     自定义 Token 序列化器，添加用户角色信息
     支持加密密码传输
     """
+    default_error_messages = {
+        "no_active_account": "用户名或密码错误"
+    }
+
     def validate(self, attrs):
         # 解密密码
         try:
@@ -146,7 +150,20 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         except Exception as e:
             logger.error(f'登录密码解密失败: {str(e)}')
             raise Exception('密码格式错误，请重新输入')
-        
+
+        # 检查用户是否存在但被禁用
+        username = attrs.get(User.USERNAME_FIELD, '')
+        raw_password = attrs.get('password', '')
+        try:
+            user = User.objects.get(username=username)
+            if not user.is_active:
+                raise exceptions.AuthenticationFailed(
+                    '该用户已被禁用',
+                    'user_disabled'
+                )
+        except User.DoesNotExist:
+            pass
+
         data = super().validate(attrs)
         # 添加用户信息到响应
         data['user'] = {

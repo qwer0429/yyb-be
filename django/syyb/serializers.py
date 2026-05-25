@@ -21,10 +21,10 @@ class DrugListSerializer(serializers.ModelSerializer):
         model = Drug
         fields = [
             'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
-            'specification', 'dosage_form', 'medical_insurance',
+            'specification', 'dosage_form', 'administration_route', 'medical_insurance',
             'type2_drug_id', 'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
             'manufacturer_abbreviation', 'manufacturer_holder_name', 'manufacturer_holder_id',
-            'approval_number', 'approval_date', 'atc_code',
+            'approval_number', 'approval_date', 'atc_code', 'active_ingredient',
             'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
         ]
     

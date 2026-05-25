@@ -47,7 +47,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     """
     更新用户序列化器
     """
-    password = serializers.CharField(write_only=True, required=False, min_length=6)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=6)
     
     class Meta:
         model = User

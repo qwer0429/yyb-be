@@ -1,54 +1,52 @@
-asgiref
-async-timeout
-bcrypt
-certifi
-cffi
-charset-normalizer
-cryptography
-DBUtils
-Deprecated
-Django
-django-cors-headers
+# ============================================================
+# 医药宝管理系统 - Python 依赖
+# 环境: Python 3.12
+# ============================================================
 
-django-filter
-django-guardian
-django-haystack
-django-mdeditor
-django-redis
-djangorestframework
-djangorestframework-simplejwt
-drf-haystack
-gevent
-greenlet
-gunicorn
-idna
-importlib-metadata
-Markdown
-openpyxl
-packaging
-pandas
-paramiko
-pdfkit
-pycparser
-PyJWT
-PyMySQL
-PyNaCl
-pyparsing
-python-dateutil
-pytz
-PyYAML
-redis
-requests
-six
-SQLAlchemy
-sqlparse
-tornado
-urllib3
-webssh
-Whoosh
-wrapt
-zipp
-zope.event
-zope.interface
-Pillow
-mysqlclient
+# ------------------ Django 核心框架 ------------------
+Django==6.0.3
+
+# ------------------ Django REST Framework ------------------
+djangorestframework==3.17.0
+djangorestframework_simplejwt==5.5.1
+
+# ------------------ Django 扩展 ------------------
+django-cors-headers==4.9.0
+django-filter==25.2
+django-guardian==3.3.0
+django-haystack==3.3.0
+django-redis==6.0.0
+drf-haystack==1.5.6
+
+# ------------------ 数据库 / 缓存 ------------------
+mysqlclient==2.2.8
+PyMySQL==1.1.2
+redis==7.3.0
+DBUtils==3.1.2
+
+# ------------------ 数据处理 (Excel 导入) ------------------
+pandas==3.0.1
+openpyxl==3.1.5
+numpy==2.4.3
+PyYAML==6.0.3
+
+# ------------------ 加密 / 安全 ------------------
+pycryptodome==3.23.0
+PyJWT==2.12.1
+
+# ------------------ 图片处理 ------------------
+pillow==12.1.1
+
+# ------------------ 全文搜索 ------------------
+Whoosh==2.7.4
+
+# ------------------ HTTP 请求 ------------------
+requests==2.32.5
+
+# ------------------ 生产部署 ------------------
+gunicorn==25.1.0
+
+# ------------------ 工具依赖 ------------------
+python-dateutil==2.9.0.post0
+pytz==2026.1.post1
+Markdown==3.10.2

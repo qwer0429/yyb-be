@@ -54,7 +54,9 @@ from .import_tasks import task_manager, run_import_in_thread
 
 # 列名映射：中文列名 -> 英文列名
 COLUMN_NAME_MAPPING = {
+    '药品名': 'drug_name',
     '药品名(必填)': 'drug_name',
+    '药品名称': 'drug_name',
     '药品名（英文）': 'drug_name_en',
     '商品名': 'trade_name',
     '商品名（英文）': 'trade_name_en',
@@ -174,29 +176,44 @@ def validate_row_data(row):
 
 def check_drug_uniqueness(row):
     """
-    校验药品唯一性（药品名 + 批准文号 + 厂商简称）
+    校验药品唯一性
+    策略：
+      1. 有 ATC 代码时以 ATC 为准，不跳过（让 update_or_create 处理更新）
+      2. 无 ATC 时以 (药品名/商品名 + 规格 + 厂商简称) 组合判断
     返回: (是否唯一, 已存在的药品对象或None)
     """
+    atc_code = get_row_value(row, 'atc_code')
+    # 有 ATC 代码时不跳过，后续 update_or_create 会处理更新/创建
+    if atc_code:
+        return True, None
+
     drug_name = get_row_value(row, 'drug_name')
+    trade_name = get_row_value(row, 'trade_name')
     approval_number = get_row_value(row, 'approval_number')
     manufacturer_abb = get_row_value(row, 'Manufacturer_abb')
-    
-    # 如果缺少任一关键字段，跳过唯一性校验（让其他校验处理）
-    if not drug_name:
+    specification = get_row_value(row, 'specification')
+
+    # 药品名和商品名都为空时才跳过校验
+    name = drug_name or trade_name
+    if not name:
         return True, None
-    
+
     # 构建查询条件
-    query = Q(drug_name=drug_name)
-    
+    query = Q(drug_name=name) | Q(trade_name=name)
+
     if approval_number:
         query &= Q(approval_number=approval_number)
-    
+
     if manufacturer_abb:
         query &= Q(manufacturer__abbreviation=manufacturer_abb)
-    
+    else:
+        # 无厂商简称时，增加规格作为辅助去重条件
+        if specification:
+            query &= Q(specification=specification)
+
     # 查询是否已存在
     existing = Drug.objects.filter(query).first()
-    
+
     return existing is None, existing
 
 
