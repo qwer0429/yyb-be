@@ -19,6 +19,8 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     set -a
     source "$SCRIPT_DIR/.env"
     set +a
+else
+    echo -e "${YELLOW}警告：找不到 .env 配置文件，使用默认值 localhost${NC}"
 fi
 
 # 配置
@@ -26,10 +28,17 @@ SERVICE_HOST=${SERVICE_HOST:-localhost}
 USER_PORT=${USER_PORT:-3001}
 
 # 导出给子进程（Vite 前端需要）
-export SERVICE_HOST USER_PORT BACKEND_PORT
+export SERVICE_HOST USER_PORT BACKEND_PORT ADMIN_PORT
 export VITE_SERVICE_HOST=$SERVICE_HOST
 export VITE_BACKEND_PORT=$BACKEND_PORT
+export VITE_ADMIN_PORT=$ADMIN_PORT
 export VITE_USER_PORT=$USER_PORT
+# 覆盖前端 .env.development 中的默认值
+export VITE_ADMIN_URL=http://$SERVICE_HOST:$ADMIN_PORT
+export VITE_API_BASE_URL=http://$SERVICE_HOST:$BACKEND_PORT
+
+# 调试输出
+echo "[配置] 服务IP: $SERVICE_HOST, 用户端口: $USER_PORT"
 
 # 检查 Node.js
 echo -e "${CYAN}[检查]${NC} Node.js 环境..."

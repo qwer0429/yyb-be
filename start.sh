@@ -12,6 +12,9 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     set -a
     source "$SCRIPT_DIR/.env"
     set +a
+else
+    echo -e "${YELLOW}警告：找不到 .env 配置文件，使用默认值 localhost${NC}"
+    echo -e "${YELLOW}      如需自定义IP，请在项目根目录创建 .env 文件${NC}"
 fi
 
 # 配置（优先使用 .env 中的值，否则使用默认值）
@@ -26,9 +29,13 @@ export VITE_SERVICE_HOST=$SERVICE_HOST
 export VITE_BACKEND_PORT=$BACKEND_PORT
 export VITE_ADMIN_PORT=$ADMIN_PORT
 export VITE_USER_PORT=$USER_PORT
-export VITE_BACKEND_PORT=$BACKEND_PORT
-export VITE_ADMIN_PORT=$ADMIN_PORT
-export VITE_USER_PORT=$USER_PORT
+# 覆盖前端 .env.development 中的默认值
+export VITE_ADMIN_URL=http://$SERVICE_HOST:$ADMIN_PORT
+export VITE_USER_WEB_URL=http://$SERVICE_HOST:$USER_PORT
+export VITE_API_BASE_URL=http://$SERVICE_HOST:$BACKEND_PORT
+
+# 调试输出（确认配置已加载）
+echo "[配置] 服务IP: $SERVICE_HOST, 后端端口: $BACKEND_PORT, 管理端口: $ADMIN_PORT, 用户端口: $USER_PORT"
 
 PID_DIR="$SCRIPT_DIR/.pids"
 LOG_DIR="$SCRIPT_DIR/.logs"
