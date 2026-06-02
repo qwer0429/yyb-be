@@ -56,9 +56,12 @@ build/
 
 # Local env files
 *.local
-.env
-.env.*
-!.env.example
+# 本地环境文件（可能包含敏感信息）
+.env.local
+.env.*.local
+
+# 统一服务配置文件 .env 允许提交（只包含IP和端口）
+# .env
 
 # ============================================
 # IDE / Editor
