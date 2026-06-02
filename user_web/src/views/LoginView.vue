@@ -117,7 +117,9 @@ const handleLogin = async () => {
       if (success) {
         // 如果是管理员，直接跳转到后台管理系统（单点登录）
         if (authStore.isAdmin) {
-          const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://192.168.50.82:5173'
+          const serviceHost = import.meta.env.VITE_SERVICE_HOST || 'localhost'
+          const adminPort = import.meta.env.VITE_ADMIN_PORT || '5173'
+          const adminUrl = import.meta.env.VITE_ADMIN_URL || `http://${serviceHost}:${adminPort}`
           const token = authStore.accessToken
           // 构造带 token 的后台地址，后台会自动完成登录
           window.location.href = `${adminUrl}?portal_token=${token}&from=portal`

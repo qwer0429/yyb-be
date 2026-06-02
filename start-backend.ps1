@@ -4,14 +4,31 @@
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptPath
 
+# 加载统一配置
+$envFile = Join-Path $scriptPath ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { return }
+        if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+            $key = $matches[1]
+            $value = $matches[2].Trim() -replace "^['\"]|['\"]$"
+            if ($value -notmatch '\$\{') {
+                [Environment]::SetEnvironmentVariable($key, $value, "Process")
+            }
+        }
+    }
+}
+
+# 配置（优先使用 .env 中的值）
+$SERVICE_HOST = if ($env:SERVICE_HOST) { $env:SERVICE_HOST } else { 'localhost' }
+$BACKEND_PORT = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { '8000' }
+$VENV_PATH = "./django/venv"
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "    医药宝后端服务启动脚本" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-
-# 配置
-$BACKEND_PORT = 8000
-$VENV_PATH = "./django/venv"
 
 # 检查 Python
 Write-Host "[检查] Python 环境..." -ForegroundColor Yellow
@@ -39,7 +56,7 @@ $portInUse = Get-NetTCPConnection -LocalPort $BACKEND_PORT -ErrorAction Silently
 if ($portInUse) {
     Write-Host "[提示] 端口 $BACKEND_PORT 已被占用" -ForegroundColor Yellow
     Write-Host "[提示] 后端服务可能已在运行" -ForegroundColor Yellow
-    Write-Host "[提示] 访问地址: http://127.0.0.1:$BACKEND_PORT" -ForegroundColor Cyan
+    Write-Host "[提示] 访问地址: http://$SERVICE_HOST`:$BACKEND_PORT" -ForegroundColor Cyan
     exit 0
 }
 
@@ -49,8 +66,8 @@ Set-Location django
 Write-Host "[启动] 正在激活虚拟环境..." -ForegroundColor Yellow
 Write-Host "[启动] 正在启动 Django 服务..." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "访问地址: http://127.0.0.1:$BACKEND_PORT" -ForegroundColor Green
-Write-Host "管理员后台: http://127.0.0.1:$BACKEND_PORT/admin" -ForegroundColor Green
+Write-Host "访问地址: http://$SERVICE_HOST`:$BACKEND_PORT" -ForegroundColor Green
+Write-Host "管理员后台: http://$SERVICE_HOST`:$BACKEND_PORT/admin" -ForegroundColor Green
 Write-Host ""
 Write-Host "按 Ctrl+C 停止服务" -ForegroundColor Yellow
 Write-Host ""

@@ -89,8 +89,8 @@ const iframeRef = ref<HTMLIFrameElement | null>(null)
 const isLoading = ref(true)
 const loadError = ref(false)
 const isFullscreen = ref(false)
-// const iframeSrc = 'http://192.168.50.20:3020/chat/share?shareId=nb0tltj2x1624ovex4t8d8rz'
-const iframeSrc = 'http://101.36.73.86:53000/chat/share?shareId=19d80osbyylg6piqy2j5corg'
+const iframeSrc = 'http://192.168.50.20:3020/chat/share?shareId=nb0tltj2x1624ovex4t8d8rz'
+// const iframeSrc = 'http://101.36.73.86:53000/chat/share?shareId=19d80osbyylg6piqy2j5corg'
 
 // 处理 iframe 加载完成
 const handleLoad = () => {

@@ -14,8 +14,22 @@ NC='\033[0m' # No Color
 # 获取脚本所在目录
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# 加载统一配置
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
 # 配置
-USER_PORT=3001
+SERVICE_HOST=${SERVICE_HOST:-localhost}
+USER_PORT=${USER_PORT:-3001}
+
+# 导出给子进程（Vite 前端需要）
+export SERVICE_HOST USER_PORT BACKEND_PORT
+export VITE_SERVICE_HOST=$SERVICE_HOST
+export VITE_BACKEND_PORT=$BACKEND_PORT
+export VITE_USER_PORT=$USER_PORT
 
 # 检查 Node.js
 echo -e "${CYAN}[检查]${NC} Node.js 环境..."
@@ -38,7 +52,7 @@ fi
 if lsof -Pi :"$USER_PORT" -sTCP:LISTEN -t >/dev/null 2>&1; then
     echo -e "${YELLOW}[提示]${NC} 端口 $USER_PORT 已被占用"
     echo -e "${YELLOW}[提示]${NC} 用户端系统可能已在运行"
-    echo -e "${BLUE}[提示]${NC} 访问地址: http://localhost:$USER_PORT"
+    echo -e "${BLUE}[提示]${NC} 访问地址: http://$SERVICE_HOST:$USER_PORT"
     exit 0
 fi
 
@@ -63,7 +77,7 @@ echo -e "${CYAN}========================================${NC}"
 echo ""
 echo -e "${GREEN}[启动]${NC} 正在启动 Vue 开发服务器..."
 echo ""
-echo -e "${BLUE}访问地址: http://localhost:$USER_PORT${NC}"
+echo -e "${BLUE}访问地址: http://$SERVICE_HOST:$USER_PORT${NC}"
 echo ""
 echo -e "${YELLOW}按 Ctrl+C 停止服务${NC}"
 echo ""

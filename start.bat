@@ -14,14 +14,31 @@ color 0B
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
+:: 加载统一配置
+set "SERVICE_HOST=localhost"
+set "ENV_FILE=%SCRIPT_DIR%.env"
+if exist "%ENV_FILE%" (
+    for /f "usebackq tokens=1,* delims==" %%a in ("%ENV_FILE%") do (
+        set "key=%%a"
+        :: 跳过注释行和空行
+        set "firstChar=!key:~0,1!"
+        if not "!firstChar!"=="#" (
+            if not "!key!"=="" (
+                set "%%a=%%b"
+            )
+        )
+    )
+)
+
 :: 创建必要的目录
 if not exist ".pids" mkdir ".pids"
 if not exist ".logs" mkdir ".logs"
 
-:: 服务配置
-set BACKEND_PORT=8000
-set ADMIN_PORT=5173
-set USER_PORT=3001
+:: 服务配置（优先使用 .env 中的值，否则使用默认值）
+if not defined BACKEND_PORT set BACKEND_PORT=8000
+if not defined ADMIN_PORT set ADMIN_PORT=5173
+if not defined USER_PORT set USER_PORT=3001
+if not defined SERVICE_HOST set SERVICE_HOST=localhost
 
 :: ==================== 工具函数 ====================
 
@@ -102,7 +119,7 @@ set USER_PORT=3001
     if not errorlevel 1 (
         echo [提示] 端口 %BACKEND_PORT% 已被占用
         echo [提示] 后端服务可能已在运行
-        echo [提示] 访问地址: http://localhost:%BACKEND_PORT%
+        echo [提示] 访问地址: http://%SERVICE_HOST%:%BACKEND_PORT%
         exit /b 0
     )
     
@@ -124,8 +141,8 @@ set USER_PORT=3001
     call :check_port %BACKEND_PORT%
     if not errorlevel 1 (
         echo [通过] 后端服务已启动
-        echo [提示] 访问地址: http://localhost:%BACKEND_PORT%
-        echo [提示] Admin 后台: http://localhost:%BACKEND_PORT%/admin
+        echo [提示] 访问地址: http://%SERVICE_HOST%:%BACKEND_PORT%
+        echo [提示] Admin 后台: http://%SERVICE_HOST%:%BACKEND_PORT%/admin
     ) else (
         echo [等待] 服务启动中，请稍后在浏览器中访问
     )
@@ -145,7 +162,7 @@ set USER_PORT=3001
     if not errorlevel 1 (
         echo [提示] 端口 %ADMIN_PORT% 已被占用
         echo [提示] 后台管理系统可能已在运行
-        echo [提示] 访问地址: http://localhost:%ADMIN_PORT%
+        echo [提示] 访问地址: http://%SERVICE_HOST%:%ADMIN_PORT%
         exit /b 0
     )
     
@@ -171,7 +188,7 @@ set USER_PORT=3001
     timeout /t 3 /nobreak >nul
     
     echo [通过] 后台管理系统已启动
-    echo [提示] 访问地址: http://localhost:%ADMIN_PORT%
+    echo [提示] 访问地址: http://%SERVICE_HOST%:%ADMIN_PORT%
     
     cd ..
     exit /b 0
@@ -188,7 +205,7 @@ set USER_PORT=3001
     if not errorlevel 1 (
         echo [提示] 端口 %USER_PORT% 已被占用
         echo [提示] 用户端系统可能已在运行
-        echo [提示] 访问地址: http://localhost:%USER_PORT%
+        echo [提示] 访问地址: http://%SERVICE_HOST%:%USER_PORT%
         exit /b 0
     )
     
@@ -214,7 +231,7 @@ set USER_PORT=3001
     timeout /t 3 /nobreak >nul
     
     echo [通过] 用户端系统已启动
-    echo [提示] 访问地址: http://localhost:%USER_PORT%
+    echo [提示] 访问地址: http://%SERVICE_HOST%:%USER_PORT%
     
     cd ..
     exit /b 0
@@ -248,10 +265,10 @@ set USER_PORT=3001
     echo ========================================
     echo.
     echo 服务访问地址：
-    echo   后端 API:      http://localhost:%BACKEND_PORT%
-    echo   Django Admin:  http://localhost:%BACKEND_PORT%/admin
-    echo   后台管理系统:  http://localhost:%ADMIN_PORT%
-    echo   用户端系统:    http://localhost:%USER_PORT%
+    echo   后端 API:      http://%SERVICE_HOST%:%BACKEND_PORT%
+    echo   Django Admin:  http://%SERVICE_HOST%:%BACKEND_PORT%/admin
+    echo   后台管理系统:  http://%SERVICE_HOST%:%ADMIN_PORT%
+    echo   用户端系统:    http://%SERVICE_HOST%:%USER_PORT%
     echo.
     echo 各服务已在独立窗口中运行，关闭窗口即可停止对应服务
     echo.
@@ -325,9 +342,9 @@ set USER_PORT=3001
     
     if "%ANY_RUNNING%"=="true" (
         echo 访问地址：
-        call :check_port %BACKEND_PORT% >nul && echo   后端:      http://localhost:%BACKEND_PORT%
-        call :check_port %ADMIN_PORT% >nul && echo   后台管理:  http://localhost:%ADMIN_PORT%
-        call :check_port %USER_PORT% >nul && echo   用户端:    http://localhost:%USER_PORT%
+        call :check_port %BACKEND_PORT% >nul && echo   后端:      http://%SERVICE_HOST%:%BACKEND_PORT%
+        call :check_port %ADMIN_PORT% >nul && echo   后台管理:  http://%SERVICE_HOST%:%ADMIN_PORT%
+        call :check_port %USER_PORT% >nul && echo   用户端:    http://%SERVICE_HOST%:%USER_PORT%
     )
     
     echo.

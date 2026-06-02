@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+const SERVICE_HOST = process.env.SERVICE_HOST || 'localhost'
+const BACKEND_PORT = process.env.BACKEND_PORT || '8000'
+const ADMIN_PORT = process.env.ADMIN_PORT || '5173'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue()],
@@ -11,27 +15,27 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: parseInt(ADMIN_PORT),
     host: true,
     proxy: {
       '/api': {
-        target: 'http://192.168.50.82:8000',
+        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
       },
       '/syyb': {
-        target: 'http://192.168.50.82:8000',
+        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
       },
       '/susers': {
-        target: 'http://192.168.50.82:8000',
+        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://192.168.50.82:8000',
+        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
       },
       '/users': {
-        target: 'http://192.168.50.82:8000',
+        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
         rewrite: (path) => '/susers' + path
       }

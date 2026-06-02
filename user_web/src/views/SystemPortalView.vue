@@ -117,7 +117,7 @@ const SYSTEM_CONFIGS: SystemConfig[] = [
     key: 'admin',
     title: '后台管理系统',
     desc: '医药宝后台管理，提供药品、用户、数据统计等管理功能',
-    url: import.meta.env.VITE_ADMIN_URL || 'http://localhost:5173',
+    url: import.meta.env.VITE_ADMIN_URL || `http://${import.meta.env.VITE_SERVICE_HOST || 'localhost'}:${import.meta.env.VITE_ADMIN_PORT || '5173'}`,
     icon: Management,
     gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
     permission: 'admin_system'
@@ -126,6 +126,7 @@ const SYSTEM_CONFIGS: SystemConfig[] = [
     key: 'smart-doctor',
     title: '智能医生',
     desc: 'AI 智能问诊助手，为您提供专业的健康咨询建议',
+    // url: 'http://192.168.50.20:3020/chat/share?shareId=nb0tltj2x1624ovex4t8d8rz',
     url: 'http://192.168.50.20:3020/chat/share?shareId=nb0tltj2x1624ovex4t8d8rz',
     icon: FirstAidKit,
     gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',

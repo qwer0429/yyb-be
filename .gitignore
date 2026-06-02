@@ -143,3 +143,6 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# PID files
+.pids/

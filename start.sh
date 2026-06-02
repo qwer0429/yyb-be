@@ -7,10 +7,29 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 配置
-BACKEND_PORT=8000
-ADMIN_PORT=5173
-USER_PORT=3001
+# 加载统一配置
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
+# 配置（优先使用 .env 中的值，否则使用默认值）
+SERVICE_HOST=${SERVICE_HOST:-localhost}
+BACKEND_PORT=${BACKEND_PORT:-8000}
+ADMIN_PORT=${ADMIN_PORT:-5173}
+USER_PORT=${USER_PORT:-3001}
+
+# 导出给子进程（Vite 前端需要）
+export SERVICE_HOST BACKEND_PORT ADMIN_PORT USER_PORT
+export VITE_SERVICE_HOST=$SERVICE_HOST
+export VITE_BACKEND_PORT=$BACKEND_PORT
+export VITE_ADMIN_PORT=$ADMIN_PORT
+export VITE_USER_PORT=$USER_PORT
+export VITE_BACKEND_PORT=$BACKEND_PORT
+export VITE_ADMIN_PORT=$ADMIN_PORT
+export VITE_USER_PORT=$USER_PORT
+
 PID_DIR="$SCRIPT_DIR/.pids"
 LOG_DIR="$SCRIPT_DIR/.logs"
 
@@ -42,7 +61,7 @@ start_backend() {
     . venv/bin/activate
     nohup python manage.py runserver 0.0.0.0:$BACKEND_PORT > "$LOG_DIR/backend.log" 2>&1 &
     echo $! > "$PID_DIR/backend.pid"
-    echo -e "${GREEN}✓ 后端服务已启动${NC} ${BLUE}http://localhost:$BACKEND_PORT${NC}"
+    echo -e "${GREEN}✓ 后端服务已启动${NC} ${BLUE}http://$SERVICE_HOST:$BACKEND_PORT${NC}"
 }
 
 # 启动管理端
@@ -51,7 +70,7 @@ start_admin() {
     cd "$SCRIPT_DIR/web"
     nohup npm run dev > "$LOG_DIR/admin.log" 2>&1 &
     echo $! > "$PID_DIR/admin.pid"
-    echo -e "${GREEN}✓ 后台管理系统已启动${NC} ${BLUE}http://localhost:$ADMIN_PORT${NC}"
+    echo -e "${GREEN}✓ 后台管理系统已启动${NC} ${BLUE}http://$SERVICE_HOST:$ADMIN_PORT${NC}"
 }
 
 # 启动用户端
@@ -60,7 +79,7 @@ start_user() {
     cd "$SCRIPT_DIR/user_web"
     nohup npm run dev > "$LOG_DIR/user.log" 2>&1 &
     echo $! > "$PID_DIR/user.pid"
-    echo -e "${GREEN}✓ 用户端系统已启动${NC} ${BLUE}http://localhost:$USER_PORT${NC}"
+    echo -e "${GREEN}✓ 用户端系统已启动${NC} ${BLUE}http://$SERVICE_HOST:$USER_PORT${NC}"
 }
 
 # 主流程
@@ -81,10 +100,10 @@ echo -e "${GREEN}       所有服务启动完成！${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${BLUE}访问地址：${NC}"
-echo -e "  后端 API:      http://localhost:$BACKEND_PORT"
-echo -e "  Django Admin:  http://localhost:$BACKEND_PORT/admin"
-echo -e "  后台管理系统:  http://localhost:$ADMIN_PORT"
-echo -e "  用户端系统:    http://localhost:$USER_PORT"
+echo -e "  后端 API:      http://$SERVICE_HOST:$BACKEND_PORT"
+echo -e "  Django Admin:  http://$SERVICE_HOST:$BACKEND_PORT/admin"
+echo -e "  后台管理系统:  http://$SERVICE_HOST:$ADMIN_PORT"
+echo -e "  用户端系统:    http://$SERVICE_HOST:$USER_PORT"
 echo ""
 echo -e "${BLUE}日志文件：${NC}"
 echo -e "  后端:  $LOG_DIR/backend.log"

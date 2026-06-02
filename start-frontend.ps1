@@ -4,14 +4,37 @@
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptPath
 
+# 加载统一配置
+$envFile = Join-Path $scriptPath ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { return }
+        if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+            $key = $matches[1]
+            $value = $matches[2].Trim() -replace "^['\"]|['\"]$"
+            if ($value -notmatch '\$\{') {
+                [Environment]::SetEnvironmentVariable($key, $value, "Process")
+            }
+        }
+    }
+}
+
+# 配置（优先使用 .env 中的值）
+$SERVICE_HOST = if ($env:SERVICE_HOST) { $env:SERVICE_HOST } else { 'localhost' }
+$ADMIN_PORT = if ($env:ADMIN_PORT) { $env:ADMIN_PORT } else { '5173' }
+$BACKEND_PORT = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { '8000' }
+$WEB_PATH = "./web"
+
+# 导出给 Vite 前端
+[Environment]::SetEnvironmentVariable("VITE_SERVICE_HOST", $SERVICE_HOST, "Process")
+[Environment]::SetEnvironmentVariable("VITE_BACKEND_PORT", $BACKEND_PORT, "Process")
+[Environment]::SetEnvironmentVariable("VITE_ADMIN_PORT", $ADMIN_PORT, "Process")
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "    医药宝后台管理系统启动脚本" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-
-# 配置
-$ADMIN_PORT = 5173
-$WEB_PATH = "./web"
 
 # 检查 Node.js
 Write-Host "[检查] Node.js 环境..." -ForegroundColor Yellow
@@ -34,7 +57,7 @@ $portInUse = Get-NetTCPConnection -LocalPort $ADMIN_PORT -ErrorAction SilentlyCo
 if ($portInUse) {
     Write-Host "[提示] 端口 $ADMIN_PORT 已被占用" -ForegroundColor Yellow
     Write-Host "[提示] 后台管理系统可能已在运行" -ForegroundColor Yellow
-    Write-Host "[提示] 访问地址: http://localhost:$ADMIN_PORT" -ForegroundColor Cyan
+    Write-Host "[提示] 访问地址: http://$SERVICE_HOST`:$ADMIN_PORT" -ForegroundColor Cyan
     exit 0
 }
 
@@ -53,7 +76,7 @@ if (-not (Test-Path "./node_modules")) {
 
 Write-Host "[启动] 正在启动 Vue 开发服务器..." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "访问地址: http://localhost:$ADMIN_PORT" -ForegroundColor Green
+Write-Host "访问地址: http://$SERVICE_HOST`:$ADMIN_PORT" -ForegroundColor Green
 Write-Host ""
 Write-Host "按 Ctrl+C 停止服务" -ForegroundColor Yellow
 Write-Host ""
