@@ -148,14 +148,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
+  const logout = (showMessage: boolean = true) => {
     accessToken.value = ''
     refreshToken.value = ''
     user.value = null
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user_info')
-    ElMessage.success('已退出登录')
+    if (showMessage) {
+      ElMessage.success('已退出登录')
+    }
   }
 
   // 解析 JWT 的 exp 字段，判断 token 是否过期
@@ -181,8 +183,9 @@ export const useAuthStore = defineStore('auth', () => {
       accessToken.value = token || ''
       refreshToken.value = refresh
     } else {
-      // access token 和 refresh token 都过期或不存在，彻底清理
-      logout()
+      // access token 和 refresh token 都过期或不存在，静默清理（不弹消息）
+      // 避免从用户端跳转过来时，先显示"已退出登录"再单点登录的错觉
+      logout(false)
     }
   }
 
