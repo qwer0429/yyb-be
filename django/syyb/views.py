@@ -1829,6 +1829,7 @@ def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicat
         # ========== 第三遍：逐个处理药品（每个药品独立事务） ==========
         logger.info(f"开始第三遍：导入药品数据，共 {len(all_rows)} 条...")
         created_drugs = []
+        updated_drugs = []
         error_list = []
         skipped_duplicates = []
         processed_count = 0
@@ -1947,7 +1948,7 @@ def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicat
                         if 'manufacturer' in drug_data:
                             existing_drug.manufacturer = drug_data['manufacturer']
                         existing_drug.save()
-                        created_drugs.append(existing_drug.id)
+                        updated_drugs.append(existing_drug.id)
                         logger.info(f"更新药品: {drug_name} (ID: {existing_drug.id})")
                     else:
                         # 创建新记录
@@ -1968,16 +1969,17 @@ def _process_import_task(task_id: str, excel_file, file_name: str, skip_duplicat
         result = {
             "success": True,
             "created_count": len(created_drugs),
+            "updated_count": len(updated_drugs),
             "skipped_count": len(skipped_duplicates),
             "skipped_duplicates": skipped_duplicates[:20] if skipped_duplicates else [],
             "total_rows": len(all_rows),
             "error_count": len(error_list),
             "error_list": error_list[:10] if error_list else [],
-            "message": f"成功导入 {len(created_drugs)} 条药品记录，跳过 {len(skipped_duplicates)} 条重复，失败 {len(error_list)} 条",
+            "message": f"新增 {len(created_drugs)} 条，更新 {len(updated_drugs)} 条，跳过 {len(skipped_duplicates)} 条重复，失败 {len(error_list)} 条",
         }
         
         logger.info(f"=== 导入任务 {task_id} 完成 ===")
-        logger.info(f"结果: 成功创建 {len(created_drugs)} 条，跳过 {len(skipped_duplicates)} 条，失败 {len(error_list)} 条")
+        logger.info(f"结果: 新增 {len(created_drugs)} 条，更新 {len(updated_drugs)} 条，跳过 {len(skipped_duplicates)} 条重复，失败 {len(error_list)} 条")
         if error_list:
             logger.warning(f"错误列表: {error_list[:5]}")
         
