@@ -116,7 +116,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[14, 28, 56, 112]"
+        :page-sizes="[15, 30, 60, 120]"
         :total="total"
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
@@ -277,7 +277,7 @@ const searchForm = reactive({
 const drugs = ref([])
 const loading = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(14)
+const pageSize = ref(15)
 const total = ref(0)
 
 // 分类选项
