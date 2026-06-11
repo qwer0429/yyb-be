@@ -75,6 +75,7 @@
             fit="cover"
             class="drug-image"
             :preview-src-list="[]"
+            lazy
           >
             <template #error>
               <div class="image-placeholder">
@@ -716,57 +717,6 @@ const importProgressDetail = ref<any>({});
 const importStatusTimer = ref<any>(null);
 const IMPORT_STATUS_INTERVAL = 1000; // 轮询间隔1秒
 
-// 全部药品数据（前端分页用）
-const allDrugs = ref<any[]>([]);
-
-// 获取药品列表
-const fetchDrugs = async () => {
-  loading.value = true;
-  try {
-    // 请求全部数据（后端返回不分页）
-    const response = await api.get('/syyb/drug/', {
-      params: {
-        page_size: 0  // 0 表示返回全部数据
-      }
-    });
-    // 后端不分页时直接返回数组，分页时返回 {results, count}
-    let drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
-    
-    // 排序：有图片的排在前面
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0;
-      const bHasImage = b.drug_image ? 1 : 0;
-      // 先按是否有图片排序（有图片的在前）
-      if (aHasImage !== bHasImage) {
-        return bHasImage - aHasImage;
-      }
-      // 都有图片或都没有图片时，按热门状态排序
-      const aIsHot = a.is_hot ? 1 : 0;
-      const bIsHot = b.is_hot ? 1 : 0;
-      if (aIsHot !== bIsHot) {
-        return bIsHot - aIsHot;
-      }
-      // 最后按ID倒序
-      return b.id - a.id;
-    });
-    
-    allDrugs.value = drugsList;
-    total.value = allDrugs.value.length;
-    updatePagedDrugs();
-  } catch (error) {
-    console.error('获取药品列表失败:', error);
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 更新当前页显示的药品（前端分页）
-const updatePagedDrugs = () => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  drugs.value = allDrugs.value.slice(start, end);
-};
-
 // 获取分类选项
 const fetchCategories = async () => {
   try {
@@ -817,88 +767,45 @@ const fetchType2Drugs = async () => {
   }
 };
 
-// 搜索
+// 搜索（统一使用后端分页）
 const handleSearch = () => {
   currentPage.value = 1;
-  // 根据是否有分类或关键词选择搜索方式
-  if (searchForm.keyword || searchForm.category.length > 0) {
-    searchDrugs();
-  } else {
-    fetchDrugs();
-  }
+  fetchDrugsWithFilters();
 };
 
-// 模糊搜索药品
-const searchDrugs = async () => {
+// 统一获取药品（支持关键词搜索 + 分类筛选，后端分页）
+const fetchDrugsWithFilters = async () => {
   loading.value = true;
   try {
-    let drugsList: any[] = [];
-    
-    // 如果有关键词，调用搜索接口
+    const params: any = {
+      page: currentPage.value,
+      page_size: pageSize.value
+    };
+
+    // 分类筛选参数
+    if (searchForm.category && searchForm.category.length > 0) {
+      const categoryArr = searchForm.category as any[];
+      if (categoryArr.length >= 2) {
+        params.type2_id = categoryArr[1];
+      } else {
+        params.type1_id = categoryArr[0];
+      }
+    }
+
+    // 有关键词时调用搜索接口，否则调用列表接口
     if (searchForm.keyword) {
-      const response = await api.post('/syyb/search_anything/', {
+      const response = await api.post(`/syyb/search_anything/?page=${params.page}&page_size=${params.page_size}`, {
         text: searchForm.keyword
       });
-      drugsList = response.data.results || [];
+      drugs.value = response.data.results || [];
+      total.value = response.data.count || 0;
     } else {
-      // 如果没有关键词但选择了分类，获取所有数据
-      const response = await api.get('/syyb/drug/', {
-        params: { page_size: 0 }
-      });
-      drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      const response = await api.get('/syyb/drug/', { params });
+      drugs.value = response.data.results || [];
+      total.value = response.data.count || 0;
     }
-    
-    // 根据分类筛选
-    if (searchForm.category.length > 0) {
-      const categoryId = searchForm.category[searchForm.category.length - 1]; // 获取最后一级的ID
-      
-      // 判断是一级分类还是二级分类
-      const isType1 = searchForm.category.length === 1;
-      
-      if (isType1) {
-        // 一级分类：筛选该一级分类下的所有药品
-        drugsList = drugsList.filter((drug: any) => {
-          // 通过二级分类的父级判断
-          const type2Id = drug.type2_drug_id;
-          if (!type2Id) return false;
-          
-          // 在 categoryOptions 中查找该二级分类所属的一级分类
-          for (const type1 of categoryOptions.value) {
-            if (type1.value === categoryId) {
-              // 检查该一级分类的子分类中是否包含这个药品的二级分类
-              const type2Ids = type1.children?.map((child: any) => child.value) || [];
-              return type2Ids.includes(type2Id);
-            }
-          }
-          return false;
-        });
-      } else {
-        // 二级分类：直接筛选
-        drugsList = drugsList.filter((drug: any) => drug.type2_drug_id === categoryId);
-      }
-    }
-    
-    // 排序：有图片的排在前面
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0;
-      const bHasImage = b.drug_image ? 1 : 0;
-      if (aHasImage !== bHasImage) {
-        return bHasImage - aHasImage;
-      }
-      const aIsHot = a.is_hot ? 1 : 0;
-      const bIsHot = b.is_hot ? 1 : 0;
-      if (aIsHot !== bIsHot) {
-        return bIsHot - aIsHot;
-      }
-      return b.id - a.id;
-    });
-    
-    allDrugs.value = drugsList;
-    total.value = allDrugs.value.length;
-    currentPage.value = 1;  // 搜索后重置到第一页
-    updatePagedDrugs();
   } catch (error) {
-    console.error('搜索失败:', error);
+    console.error('获取药品列表失败:', error);
   } finally {
     loading.value = false;
   }
@@ -909,7 +816,7 @@ const handleReset = () => {
   searchForm.keyword = '';
   searchForm.category = [];
   currentPage.value = 1;
-  fetchDrugs();
+  fetchDrugsWithFilters();
 };
 
 // 获取医保类型标签样式
@@ -961,16 +868,16 @@ const handleSelectAll = () => {
   }
 };
 
-// 分页（前端分页）
+// 分页（后端分页）
 const handleSizeChange = (val: number) => {
   pageSize.value = val;
-  currentPage.value = 1;  // 切换每页数量时重置到第一页
-  updatePagedDrugs();
+  currentPage.value = 1;
+  fetchDrugsWithFilters();
 };
 
 const handlePageChange = (val: number) => {
   currentPage.value = val;
-  updatePagedDrugs();
+  fetchDrugsWithFilters();
 };
 
 // 新增
@@ -1077,7 +984,7 @@ const handleDelete = (row: any) => {
     try {
       await api.delete(`/syyb/drug/${row.id}/`);
       ElMessage.success('删除成功');
-      fetchDrugs();
+      fetchDrugsWithFilters();
     } catch (error) {
       console.error('删除失败:', error);
     }
@@ -1098,7 +1005,7 @@ const handleBatchDelete = () => {
       });
       ElMessage.success('批量删除成功');
       selectedDrugs.value = [];
-      fetchDrugs();
+      fetchDrugsWithFilters();
     } catch (error) {
       console.error('批量删除失败:', error);
     }
@@ -1171,7 +1078,7 @@ const handleSubmit = async () => {
           ElMessage.success('添加成功');
         }
         dialogVisible.value = false;
-        fetchDrugs();
+        fetchDrugsWithFilters();
       } catch (error) {
         console.error('提交失败:', error);
       } finally {
@@ -1357,7 +1264,7 @@ const checkImportStatus = async () => {
             detail: task.result
           };
           // 刷新药品列表
-          fetchDrugs();
+          fetchDrugsWithFilters();
         } else if (task.status === 'failed') {
           importResults.value = {
             success: false,
@@ -1472,7 +1379,7 @@ const handleDeleteImage = async (drug: any) => {
 };
 
 onMounted(() => {
-  fetchDrugs();
+  fetchDrugsWithFilters();
   fetchCategories();
   fetchManufacturers();
   fetchManufacturerHolders();

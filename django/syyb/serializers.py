@@ -6,28 +6,23 @@ from .models import (
 
 
 class DrugListSerializer(serializers.ModelSerializer):
-    """简化版药品列表序列化器，只返回列表展示需要的字段"""
-    type2_drug_id = serializers.IntegerField(source='type2_drug.id', read_only=True, allow_null=True)
+    """
+    精简版药品列表序列化器
+    仅返回卡片/列表展示必需的字段，大幅减少数据传输量和序列化开销
+    """
     type2_drug_name = serializers.CharField(source='type2_drug.name', read_only=True)
     type1_drug = serializers.CharField(source='type2_drug.type1_drug.name', read_only=True)
     manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
-    manufacturer_abbreviation = serializers.CharField(source='manufacturer.abbreviation', read_only=True)
-    manufacturer_id = serializers.IntegerField(source='manufacturer.id', read_only=True)
-    manufacturer_holder_name = serializers.CharField(source='manufacturer_holder.name', read_only=True)
-    manufacturer_holder_id = serializers.IntegerField(source='manufacturer_holder.id', read_only=True)
     drug_image = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Drug
         fields = [
-            'id', 'drug_name', 'drug_name_en', 'trade_name', 'trade_name_en',
-            'specification', 'dosage_form', 'administration_route', 'medical_insurance',
-            'type2_drug_id', 'type2_drug_name', 'type1_drug', 'manufacturer_name', 'manufacturer_id',
-            'manufacturer_abbreviation', 'manufacturer_holder_name', 'manufacturer_holder_id',
-            'approval_number', 'approval_date', 'atc_code', 'active_ingredient',
-            'market_status', 'drug_image', 'family_use', 'is_hot', 'indications', 'description'
+            'id', 'drug_name', 'trade_name', 'specification', 'dosage_form',
+            'medical_insurance', 'type2_drug_name', 'type1_drug',
+            'manufacturer_name', 'drug_image', 'is_hot', 'indications'
         ]
-    
+
     def get_drug_image(self, obj):
         """返回完整的图片URL"""
         if obj.drug_image:

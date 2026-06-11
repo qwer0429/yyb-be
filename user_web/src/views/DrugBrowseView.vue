@@ -57,6 +57,7 @@
             :preview-src-list="[drug.drug_image || '/default-drug.png']"
             :initial-index="0"
             preview-teleported
+            lazy
           >
             <template #error>
               <div class="image-placeholder">
@@ -115,7 +116,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :page-sizes="[15, 30, 60, 120]"
+        :page-sizes="[14, 28, 56, 112]"
         :total="total"
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
@@ -276,7 +277,7 @@ const searchForm = reactive({
 const drugs = ref([])
 const loading = ref(false)
 const currentPage = ref(1)
-const pageSize = ref(15)
+const pageSize = ref(14)
 const total = ref(0)
 
 // 分类选项
@@ -325,27 +326,7 @@ const fetchDrugs = async () => {
     }
     
     const response = await api.get('/syyb/drug/', { params })
-    let drugsList = response.data.results || []
-    
-    // 排序：有图片的排在前面
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0
-      const bHasImage = b.drug_image ? 1 : 0
-      // 先按是否有图片排序（有图片的在前）
-      if (aHasImage !== bHasImage) {
-        return bHasImage - aHasImage
-      }
-      // 都有图片或都没有图片时，按热门状态排序
-      const aIsHot = a.is_hot ? 1 : 0
-      const bIsHot = b.is_hot ? 1 : 0
-      if (aIsHot !== bIsHot) {
-        return bIsHot - aIsHot
-      }
-      // 最后按ID倒序
-      return b.id - a.id
-    })
-    
-    drugs.value = drugsList
+    drugs.value = response.data.results || []
     total.value = response.data.count || 0
   } catch (error) {
     console.error('获取药品列表失败:', error)

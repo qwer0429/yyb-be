@@ -365,26 +365,26 @@ class Type2DrugsByType1View(APIView):
 
 class DrugsByType2View(APIView):
     """
-    查询二级分类下的所有药品信息
+    查询二级分类下的所有药品信息（支持分页）
     """
 
-    permission_classes = [permissions.AllowAny]  # 允许所有用户访问
-    serializer_class = DrugSerializer  # 指定序列化器
+    permission_classes = [permissions.AllowAny]
+    pagination_class = CustomPagination
 
     def get(self, request, type2_id):
-
         # 获取二级分类
         type2_drug = Type2Drug.objects.get(id=type2_id)
 
         # 获取该二级分类下的所有药品
-        drugs = type2_drug.drug_set.all()
+        drugs = type2_drug.drug_set.select_related(
+            'manufacturer', 'manufacturer_holder', 'type2_drug', 'type2_drug__type1_drug'
+        ).order_by("-drug_image", "-is_hot", "-id")
 
-        # 序列化药品数据
-        serializer = self.serializer_class(drugs, many=True, context={"request": request})
-        return Response(
-            {"count": len(serializer.data), "results": serializer.data},
-            status=status.HTTP_200_OK,
-        )
+        # 分页 + 精简序列化
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(drugs, request, view=self)
+        serializer = DrugListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 class FamilyUseList(APIView):
@@ -393,6 +393,7 @@ class FamilyUseList(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    pagination_class = CustomPagination
 
     def post(self, request):
         family_use = request.data.get("family_use", "")
@@ -404,13 +405,15 @@ class FamilyUseList(APIView):
             )
 
         # 查询数据库
-        drugs = Drug.objects.filter(family_use=family_use)
-        results = DrugSerializer(drugs, many=True, context={"request": request})
+        drugs = Drug.objects.filter(family_use=family_use).select_related(
+            'manufacturer', 'manufacturer_holder', 'type2_drug', 'type2_drug__type1_drug'
+        ).order_by("-drug_image", "-is_hot", "-id")
 
-        return Response(
-            {"count": len(results.data), "results": results.data},
-            status=status.HTTP_200_OK,
-        )
+        # 手动分页
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(drugs, request, view=self)
+        serializer = DrugListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 class SearchManufacturer(APIView):
@@ -419,6 +422,7 @@ class SearchManufacturer(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    pagination_class = CustomPagination
 
     def post(self, request):
         manufacturer = request.data.get("manufacturer", "")
@@ -430,13 +434,15 @@ class SearchManufacturer(APIView):
             )
 
         # 查询数据库（通过生产厂商全称查询）
-        drugs = Drug.objects.filter(manufacturer__name=manufacturer)
-        results = DrugSerializer(drugs, many=True, context={"request": request})
+        drugs = Drug.objects.filter(manufacturer__name=manufacturer).select_related(
+            'manufacturer', 'manufacturer_holder', 'type2_drug', 'type2_drug__type1_drug'
+        ).order_by("-drug_image", "-is_hot", "-id")
 
-        return Response(
-            {"count": len(results.data), "results": results.data},
-            status=status.HTTP_200_OK,
-        )
+        # 手动分页
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(drugs, request, view=self)
+        serializer = DrugListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 class SearchManufacturerHolder(APIView):
@@ -445,6 +451,7 @@ class SearchManufacturerHolder(APIView):
     """
 
     permission_classes = [permissions.AllowAny]
+    pagination_class = CustomPagination
 
     def post(self, request):
         manufacturer_holder = request.data.get("manufacturer_holder", "")
@@ -457,13 +464,15 @@ class SearchManufacturerHolder(APIView):
             )
 
         # 查询数据库（通过上市许可持有人全称查询）
-        drugs = Drug.objects.filter(manufacturer_holder__name=manufacturer_holder)
-        results = DrugSerializer(drugs, many=True, context={"request": request})
+        drugs = Drug.objects.filter(manufacturer_holder__name=manufacturer_holder).select_related(
+            'manufacturer', 'manufacturer_holder', 'type2_drug', 'type2_drug__type1_drug'
+        ).order_by("-drug_image", "-is_hot", "-id")
 
-        return Response(
-            {"count": len(results.data), "results": results.data},
-            status=status.HTTP_200_OK,
-        )
+        # 手动分页
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(drugs, request, view=self)
+        serializer = DrugListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 # class SearchAnything(APIView):
@@ -501,9 +510,11 @@ class SearchAnything(APIView):
     """
     支持药品名、商品名、厂商信息的模糊搜索
     (匹配字段包含：药品名、英文药品名、商品名、英文商品名、厂商全称、厂商简称)
+    使用分页 + 精简序列化器，避免大数据量拖垮接口
     """
 
     permission_classes = [permissions.AllowAny]
+    pagination_class = CustomPagination
 
     def post(self, request):
         search_text = request.data.get("text", "").strip()
@@ -522,21 +533,24 @@ class SearchAnything(APIView):
         query |= Q(manufacturer__name__icontains=search_text)
         query |= Q(manufacturer__abbreviation__icontains=search_text)
 
-        # 执行查询并优化
+        # 执行查询并优化：使用精简序列化 + 分页
         drugs = (
             Drug.objects.filter(query)
             .distinct()
-            .select_related("manufacturer")
-            .order_by("-approval_date")
-        )  # 按批准日期倒序
-
-        # 序列化结果
-        serializer = DrugSerializer(drugs, many=True, context={"request": request})
-
-        return Response(
-            {"count": drugs.count(), "results": serializer.data},
-            status=status.HTTP_200_OK,
+            .select_related(
+                'manufacturer',
+                'manufacturer_holder',
+                'type2_drug',
+                'type2_drug__type1_drug'
+            )
+            .order_by("-drug_image", "-is_hot", "-id")
         )
+
+        # 手动分页
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(drugs, request, view=self)
+        serializer = DrugListSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
 
 class AllType1WithType2View(APIView):
