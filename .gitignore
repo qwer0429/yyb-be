@@ -60,8 +60,8 @@ build/
 .env.local
 .env.*.local
 
-# 统一服务配置文件 .env 允许提交（只包含IP和端口）
-# .env
+# 统一服务配置文件 .env（包含敏感信息，不提交）
+.env
 
 # ============================================
 # IDE / Editor
@@ -149,3 +149,5 @@ dmypy.json
 
 # PID files
 .pids/
+
+performance_test/*
