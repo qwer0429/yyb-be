@@ -364,7 +364,7 @@ const userRules = {
 // 获取统计数据
 const fetchStatistics = async () => {
   try {
-    const res = await api.get('/users/statistics/');
+    const res = await api.get('/susers/users/statistics/');
     Object.assign(statistics, res.data);
   } catch (error) {
     console.error('获取统计数据失败:', error);
@@ -382,7 +382,7 @@ const fetchUsers = async () => {
       role: searchForm.role,
       is_active: searchForm.is_active
     };
-    const res = await api.get('/users/', { params });
+    const res = await api.get('/susers/users/', { params });
     users.value = res.data.results || [];
     total.value = res.data.count || 0;
   } catch (error) {
@@ -453,10 +453,10 @@ const handleSubmit = async () => {
   submitting.value = true;
   try {
     if (isEdit.value) {
-      await api.put(`/users/${userForm.id}/`, userForm);
+      await api.put(`/susers/users/${userForm.id}/`, userForm);
       ElMessage.success('更新成功');
     } else {
-      await api.post('/users/', userForm);
+      await api.post('/susers/users/', userForm);
       ElMessage.success('创建成功');
     }
     dialogVisible.value = false;
@@ -475,7 +475,7 @@ const handleDelete = async (row: any) => {
     await ElMessageBox.confirm(`确定要删除用户 "${row.username}" 吗？`, '提示', {
       type: 'warning'
     });
-    await api.delete(`/users/${row.id}/`);
+    await api.delete(`/susers/users/${row.id}/`);
     ElMessage.success('删除成功');
     fetchUsers();
     fetchStatistics();
@@ -493,7 +493,7 @@ const handleBatchDelete = async () => {
     await ElMessageBox.confirm(`确定要删除选中的 ${ids.length} 个用户吗？`, '提示', {
       type: 'warning'
     });
-    await api.delete('/users/batch_delete/', { data: { user_ids: ids } });
+    await api.delete('/susers/users/batch_delete/', { data: { user_ids: ids } });
     ElMessage.success('批量删除成功');
     fetchUsers();
     fetchStatistics();
@@ -510,7 +510,7 @@ const handleResetPassword = async (row: any) => {
     await ElMessageBox.confirm(`确定要重置 "${row.username}" 的密码为 "123456" 吗？`, '提示', {
       type: 'warning'
     });
-    await api.post(`/users/${row.id}/reset_password/`, { password: '123456' });
+    await api.post(`/susers/users/${row.id}/reset_password/`, { password: '123456' });
     ElMessage.success('密码重置成功');
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -522,7 +522,7 @@ const handleResetPassword = async (row: any) => {
 // 切换用户状态
 const handleStatusChange = async (row: any, val: boolean) => {
   try {
-    await api.post(`/users/${row.id}/toggle_status/`);
+    await api.post(`/susers/users/${row.id}/toggle_status/`);
     ElMessage.success(`用户已${val ? '启用' : '禁用'}`);
   } catch (error: any) {
     row.is_active = !val;

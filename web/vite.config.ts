@@ -34,11 +34,7 @@ export default defineConfig({
         target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
         changeOrigin: true,
       },
-      '/users': {
-        target: `http://${SERVICE_HOST}:${BACKEND_PORT}`,
-        changeOrigin: true,
-        rewrite: (path) => '/susers' + path
-      }
+      // '/users' 代理已移除，前端统一使用 '/susers' 路径
     }
   },
   build: {
@@ -50,12 +46,13 @@ export default defineConfig({
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.')
+          const name = assetInfo.name || ''
+          const info = name.split('.')
           const ext = info[info.length - 1]
-          if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(assetInfo.name)) {
+          if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(name)) {
             return 'img/[name]-[hash][extname]'
           }
-          if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name)) {
+          if (/\.(woff2?|eot|ttf|otf)$/i.test(name)) {
             return 'fonts/[name]-[hash][extname]'
           }
           return '[ext]/[name]-[hash][extname]'
