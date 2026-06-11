@@ -267,12 +267,32 @@ class DrugViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 使用 select_related 预加载关联对象，避免 N+1 查询问题
         # 排序：有图片的在前 -> 热门药品 -> 按ID倒序
-        return Drug.objects.select_related(
+        queryset = Drug.objects.select_related(
             'manufacturer',
             'manufacturer_holder',
             'type2_drug',
             'type2_drug__type1_drug'
         ).order_by("-drug_image", "-is_hot", "-id")
+        
+        # 分类筛选
+        type1_id = self.request.query_params.get('type1_id')
+        type2_id = self.request.query_params.get('type2_id')
+        if type2_id:
+            queryset = queryset.filter(type2_drug_id=type2_id)
+        elif type1_id:
+            queryset = queryset.filter(type2_drug__type1_drug_id=type1_id)
+        
+        # 关键词模糊搜索
+        keyword = self.request.query_params.get('keyword')
+        if keyword:
+            queryset = queryset.filter(
+                Q(drug_name__icontains=keyword) |
+                Q(trade_name__icontains=keyword) |
+                Q(manufacturer__name__icontains=keyword) |
+                Q(manufacturer__abbreviation__icontains=keyword)
+            ).distinct()
+        
+        return queryset
 
 
 class Type1DrugViewSet(mixins.ListModelMixin,

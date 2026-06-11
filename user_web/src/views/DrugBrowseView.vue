@@ -306,12 +306,25 @@ const submitting = ref(false)
 const fetchDrugs = async () => {
   loading.value = true
   try {
-    const response = await api.get('/syyb/drug/', {
-      params: {
-        page: currentPage.value,
-        page_size: pageSize.value
+    const params: any = {
+      page: currentPage.value,
+      page_size: pageSize.value
+    }
+    // 关键词搜索
+    if (searchForm.keyword) {
+      params.keyword = searchForm.keyword
+    }
+    // 分类筛选：级联选择器值是数组 [type1_id] 或 [type1_id, type2_id]
+    if (searchForm.category && searchForm.category.length > 0) {
+      const categoryArr = searchForm.category as any[]
+      if (categoryArr.length >= 2) {
+        params.type2_id = categoryArr[1]
+      } else {
+        params.type1_id = categoryArr[0]
       }
-    })
+    }
+    
+    const response = await api.get('/syyb/drug/', { params })
     let drugsList = response.data.results || []
     
     // 排序：有图片的排在前面
@@ -354,44 +367,7 @@ const fetchCategories = async () => {
 // 搜索
 const handleSearch = () => {
   currentPage.value = 1
-  if (searchForm.keyword) {
-    searchDrugs()
-  } else {
-    fetchDrugs()
-  }
-}
-
-// 模糊搜索药品
-const searchDrugs = async () => {
-  loading.value = true
-  try {
-    const response = await api.post('/syyb/search_anything/', {
-      text: searchForm.keyword
-    })
-    let drugsList = response.data.results || []
-    
-    // 排序：有图片的排在前面
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0
-      const bHasImage = b.drug_image ? 1 : 0
-      if (aHasImage !== bHasImage) {
-        return bHasImage - aHasImage
-      }
-      const aIsHot = a.is_hot ? 1 : 0
-      const bIsHot = b.is_hot ? 1 : 0
-      if (aIsHot !== bIsHot) {
-        return bIsHot - aIsHot
-      }
-      return b.id - a.id
-    })
-    
-    drugs.value = drugsList
-    total.value = response.data.count || 0
-  } catch (error) {
-    console.error('搜索失败:', error)
-  } finally {
-    loading.value = false
-  }
+  fetchDrugs()
 }
 
 // 重置
