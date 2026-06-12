@@ -109,16 +109,26 @@ class DrugSerializer(serializers.ModelSerializer):
             return obj.drug_image.url
         return None
 
-class ManufacturerHolderSerializer(serializers.ModelSerializer):# 定义一个只写的主键相关字段，用于接收药品的上市许可证持有人 ID
+class ManufacturerHolderSerializer(serializers.ModelSerializer):
+    drug_count = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = ManufacturerHolder
-        fields = "__all__"
+        fields = ['id', 'name', 'abbreviation', 'drug_count']
+
+    def get_drug_count(self, obj):
+        return obj.drug_set.count()
 
 
 class ManufacturerSerializer(serializers.ModelSerializer):
+    drug_count = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Manufacturer
-        fields = "__all__"
+        fields = ['id', 'name', 'abbreviation', 'drug_count']
+
+    def get_drug_count(self, obj):
+        return obj.drug_set.count()
 
 
 class Type1DrugSerializer(serializers.ModelSerializer):

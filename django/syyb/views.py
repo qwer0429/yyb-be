@@ -282,6 +282,14 @@ class DrugViewSet(viewsets.ModelViewSet):
         elif type1_id:
             queryset = queryset.filter(type2_drug__type1_drug_id=type1_id)
         
+        # 厂商/持有人筛选
+        manufacturer_id = self.request.query_params.get('manufacturer_id')
+        manufacturer_holder_id = self.request.query_params.get('manufacturer_holder_id')
+        if manufacturer_id:
+            queryset = queryset.filter(manufacturer_id=manufacturer_id)
+        if manufacturer_holder_id:
+            queryset = queryset.filter(manufacturer_holder_id=manufacturer_holder_id)
+        
         # 关键词模糊搜索
         keyword = self.request.query_params.get('keyword')
         if keyword:

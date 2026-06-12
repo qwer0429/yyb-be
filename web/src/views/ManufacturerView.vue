@@ -217,7 +217,7 @@
         <div class="drugs-stats">
           <el-tag type="primary" size="large" effect="dark">
             <el-icon><FirstAidKit /></el-icon>
-            共 {{ manufacturerDrugs.length }} 个药品
+            共 {{ drugsTotal }} 个药品
           </el-tag>
         </div>
 
@@ -261,6 +261,19 @@
 
         <!-- 空状态 -->
         <el-empty v-else description="暂无药品数据" />
+
+        <!-- 关联药品分页 -->
+        <div v-if="drugsTotal > 0" class="drugs-pagination-wrapper">
+          <el-pagination
+            v-model:current-page="drugsPage"
+            v-model:page-size="drugsPageSize"
+            :page-sizes="[14, 28, 56, 112]"
+            :total="drugsTotal"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleDrugsSizeChange"
+            @current-change="handleDrugsPageChange"
+          />
+        </div>
       </div>
       <template #footer>
         <el-button @click="drugsDialogVisible = false">关闭</el-button>
@@ -442,37 +455,28 @@ const handleBatchDeleteManufacturer = () => {
   });
 };
 
-// 查看上市许可持有人的药品
+// 查看药品相关分页
+const drugsPage = ref(1);
+const drugsPageSize = ref(14);
+const drugsTotal = ref(0);
+
+// 查看上市许可持有人的药品（后端筛选 + 分页）
 const handleViewHolderDrugs = async (holder: any) => {
   currentManufacturer.value = holder;
   currentViewType.value = 'holder';
   drugsDialogVisible.value = true;
   drugsLoading.value = true;
+  drugsPage.value = 1;
   try {
-    // 获取所有药品，然后在前端筛选（避免后端筛选参数不生效的问题）
     const response = await api.get('/syyb/drug/', {
-      params: { page_size: 0 }
+      params: {
+        manufacturer_holder_id: holder.id,
+        page: drugsPage.value,
+        page_size: drugsPageSize.value
+      }
     });
-    // 处理返回数据
-    let drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
-    
-    // 筛选属于该持有人的药品
-    drugsList = drugsList.filter((drug: any) => {
-      const holderId = drug.manufacturer_holder_id || drug.manufacturer_holder;
-      return holderId === holder.id;
-    });
-    
-    // 排序：有图片的在前，热门的在前
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0;
-      const bHasImage = b.drug_image ? 1 : 0;
-      if (aHasImage !== bHasImage) return bHasImage - aHasImage;
-      const aIsHot = a.is_hot ? 1 : 0;
-      const bIsHot = b.is_hot ? 1 : 0;
-      if (aIsHot !== bIsHot) return bIsHot - aIsHot;
-      return b.id - a.id;
-    });
-    manufacturerDrugs.value = drugsList;
+    manufacturerDrugs.value = response.data.results || [];
+    drugsTotal.value = response.data.count || 0;
   } catch (error) {
     console.error('获取药品列表失败:', error);
     ElMessage.error('获取药品列表失败');
@@ -481,43 +485,64 @@ const handleViewHolderDrugs = async (holder: any) => {
   }
 };
 
-// 查看生产厂商的药品
+// 查看生产厂商的药品（后端筛选 + 分页）
 const handleViewManufacturerDrugs = async (manufacturer: any) => {
   currentManufacturer.value = manufacturer;
   currentViewType.value = 'manufacturer';
   drugsDialogVisible.value = true;
   drugsLoading.value = true;
+  drugsPage.value = 1;
   try {
-    // 获取所有药品，然后在前端筛选（避免后端筛选参数不生效的问题）
     const response = await api.get('/syyb/drug/', {
-      params: { page_size: 0 }
+      params: {
+        manufacturer_id: manufacturer.id,
+        page: drugsPage.value,
+        page_size: drugsPageSize.value
+      }
     });
-    // 处理返回数据
-    let drugsList = Array.isArray(response.data) ? response.data : (response.data.results || []);
-    
-    // 筛选属于该厂商的药品
-    drugsList = drugsList.filter((drug: any) => {
-      const manufacturerId = drug.manufacturer_id || drug.manufacturer;
-      return manufacturerId === manufacturer.id;
-    });
-    
-    // 排序：有图片的在前，热门的在前
-    drugsList.sort((a: any, b: any) => {
-      const aHasImage = a.drug_image ? 1 : 0;
-      const bHasImage = b.drug_image ? 1 : 0;
-      if (aHasImage !== bHasImage) return bHasImage - aHasImage;
-      const aIsHot = a.is_hot ? 1 : 0;
-      const bIsHot = b.is_hot ? 1 : 0;
-      if (aIsHot !== bIsHot) return bIsHot - aIsHot;
-      return b.id - a.id;
-    });
-    manufacturerDrugs.value = drugsList;
+    manufacturerDrugs.value = response.data.results || [];
+    drugsTotal.value = response.data.count || 0;
   } catch (error) {
     console.error('获取药品列表失败:', error);
     ElMessage.error('获取药品列表失败');
   } finally {
     drugsLoading.value = false;
   }
+};
+
+// 加载厂商/持有人关联药品（分页切换）
+const fetchManufacturerDrugs = async () => {
+  if (!currentManufacturer.value) return;
+  drugsLoading.value = true;
+  try {
+    const params: any = {
+      page: drugsPage.value,
+      page_size: drugsPageSize.value
+    };
+    if (currentViewType.value === 'holder') {
+      params.manufacturer_holder_id = currentManufacturer.value.id;
+    } else {
+      params.manufacturer_id = currentManufacturer.value.id;
+    }
+    const response = await api.get('/syyb/drug/', { params });
+    manufacturerDrugs.value = response.data.results || [];
+    drugsTotal.value = response.data.count || 0;
+  } catch (error) {
+    console.error('获取药品列表失败:', error);
+  } finally {
+    drugsLoading.value = false;
+  }
+};
+
+const handleDrugsSizeChange = (val: number) => {
+  drugsPageSize.value = val;
+  drugsPage.value = 1;
+  fetchManufacturerDrugs();
+};
+
+const handleDrugsPageChange = (val: number) => {
+  drugsPage.value = val;
+  fetchManufacturerDrugs();
 };
 
 // 查看药品详情
@@ -544,36 +569,15 @@ const dialogTitle = computed(() => {
 const fetchHolderList = async () => {
   loading1.value = true;
   try {
-    // 获取持有人列表
     const response = await api.get('/syyb/manufacturerholder/', {
       params: {
         page: holderPage.value,
         page_size: holderPageSize.value
       }
     });
-    const holders = response.data.results || [];
+    // 后端已返回 drug_count，直接使用
+    holderList.value = response.data.results || [];
     holderTotal.value = response.data.count || 0;
-    
-    // 获取所有药品，统计每个持有人的药品数量
-    const drugResponse = await api.get('/syyb/drug/', {
-      params: { page_size: 0 }
-    });
-    const allDrugs = Array.isArray(drugResponse.data) ? drugResponse.data : (drugResponse.data.results || []);
-    
-    // 统计每个持有人的药品数量
-    const holderDrugCount = new Map();
-    allDrugs.forEach((drug: any) => {
-      const holderId = drug.manufacturer_holder_id || drug.manufacturer_holder;
-      if (holderId) {
-        holderDrugCount.set(holderId, (holderDrugCount.get(holderId) || 0) + 1);
-      }
-    });
-    
-    // 添加药品数量到持有人数据
-    holderList.value = holders.map((holder: any) => ({
-      ...holder,
-      drug_count: holderDrugCount.get(holder.id) || 0
-    }));
   } catch (error) {
     console.error('获取上市许可持有人失败:', error);
   } finally {
@@ -584,36 +588,15 @@ const fetchHolderList = async () => {
 const fetchManufacturerList = async () => {
   loading2.value = true;
   try {
-    // 获取厂商列表
     const response = await api.get('/syyb/manufacturer/', {
       params: {
         page: manufacturerPage.value,
         page_size: manufacturerPageSize.value
       }
     });
-    const manufacturers = response.data.results || [];
+    // 后端已返回 drug_count，直接使用
+    manufacturerList.value = response.data.results || [];
     manufacturerTotal.value = response.data.count || 0;
-    
-    // 获取所有药品，统计每个厂商的药品数量
-    const drugResponse = await api.get('/syyb/drug/', {
-      params: { page_size: 0 }
-    });
-    const allDrugs = Array.isArray(drugResponse.data) ? drugResponse.data : (drugResponse.data.results || []);
-    
-    // 统计每个厂商的药品数量
-    const manufacturerDrugCount = new Map();
-    allDrugs.forEach((drug: any) => {
-      const manufacturerId = drug.manufacturer_id || drug.manufacturer;
-      if (manufacturerId) {
-        manufacturerDrugCount.set(manufacturerId, (manufacturerDrugCount.get(manufacturerId) || 0) + 1);
-      }
-    });
-    
-    // 添加药品数量到厂商数据
-    manufacturerList.value = manufacturers.map((manufacturer: any) => ({
-      ...manufacturer,
-      drug_count: manufacturerDrugCount.get(manufacturer.id) || 0
-    }));
   } catch (error) {
     console.error('获取生产厂商失败:', error);
   } finally {
@@ -737,6 +720,14 @@ onMounted(() => { fetchHolderList(); fetchManufacturerList(); });
   gap: 6px;
   font-size: 14px;
   padding: 8px 16px;
+}
+
+.drugs-pagination-wrapper {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #ebeef5;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .drugs-grid {
